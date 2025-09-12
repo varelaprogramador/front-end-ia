@@ -22,7 +22,7 @@ export default function WorkspacePage() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [showInstancesDialog, setShowInstancesDialog] = useState(false)
-  const [selectedConfigIA, setSelectedConfigIA] = useState<ConfigIA | null>(null)
+  const [selectedConfigIA, setSelectedConfigIA] = useState<any>(null)
   const [showBlockedNumbersDialog, setShowBlockedNumbersDialog] = useState(false)
   const [selectedAgentForBlocking, setSelectedAgentForBlocking] = useState<Agent | null>(null)
   const { toast } = useToast()
@@ -166,17 +166,17 @@ export default function WorkspacePage() {
   const handleToggleStatus = async (agentId: string, newStatus: "active" | "inactive") => {
     try {
       console.log(`🔄 Toggling agent ${agentId} status to: ${newStatus}`)
-      
+
       const updatedAgent = await toggleAgentStatus(agentId, newStatus)
 
       if (updatedAgent) {
         // Atualizar o estado local imediatamente
-        setAgents(prev => prev.map(agent => 
+        setAgents(prev => prev.map(agent =>
           agent.id === agentId ? updatedAgent : agent
         ))
-        
+
         // Também atualizar os agentes filtrados
-        setFilteredAgents(prev => prev.map(agent => 
+        setFilteredAgents(prev => prev.map(agent =>
           agent.id === agentId ? updatedAgent : agent
         ))
 
@@ -218,7 +218,7 @@ export default function WorkspacePage() {
 
       if (response.success && response.data) {
         // Converter para o formato esperado pelo dialog
-        const configIA: ConfigIA = {
+        const configIA = {
           ...response.data,
           evolutionInstances: response.data.evolutionInstances || []
         }
@@ -254,7 +254,7 @@ export default function WorkspacePage() {
   const handleManageBlockedNumbers = async (agent: Agent) => {
     try {
       console.log('📞 [BLOCKED] Abrindo dialog para gerenciar números bloqueados do agente:', agent.name)
-      
+
       setSelectedAgentForBlocking(agent)
       setShowBlockedNumbersDialog(true)
     } catch (error) {
