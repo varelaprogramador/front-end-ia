@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { AgentContactsList } from "@/components/agent-contacts-list"
 import { ContactChatInterface } from "@/components/contact-chat-interface"
 import { getAgentById, toggleAgentStatus } from "@/lib/agents"
-import { Power, PowerOff, Zap, ZapOff } from "lucide-react"
+import { Power, PowerOff, Zap, ZapOff, Menu, X, MessageSquare } from "lucide-react"
 import { toast } from "sonner"
 
 interface ChatPageProps {
@@ -17,6 +17,26 @@ export default function ChatPage({ params }: ChatPageProps) {
   const [agent, setAgent] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isToggling, setIsToggling] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true) // Inicia colapsado
+  const [isMobile, setIsMobile] = useState(false)
+
+  // Hook para detectar tamanho da tela
+  useEffect(() => {
+    const checkScreenSize = () => {
+      const mobile = window.innerWidth < 768
+      setIsMobile(mobile)
+      // Definir estado inicial baseado no tamanho da tela
+      if (mobile) {
+        setSidebarCollapsed(true) // Mobile: colapsado
+      } else {
+        setSidebarCollapsed(false) // Desktop: expandido
+      }
+    }
+
+    checkScreenSize()
+    window.addEventListener('resize', checkScreenSize)
+    return () => window.removeEventListener('resize', checkScreenSize)
+  }, [])
 
   useEffect(() => {
     const loadAgent = async () => {
@@ -56,6 +76,20 @@ export default function ChatPage({ params }: ChatPageProps) {
     return () => window.removeEventListener('keydown', handleKeyPress)
   }, [agent, isToggling])
 
+  // Função para lidar com seleção de contato
+  const handleSelectContact = (contactId: string) => {
+    setSelectedContactId(contactId)
+    // Em mobile, fechar sidebar quando selecionar contato
+    if (isMobile) {
+      setSidebarCollapsed(true)
+    }
+  }
+
+  // Função para toggle da sidebar
+  const toggleSidebar = () => {
+    setSidebarCollapsed(!sidebarCollapsed)
+  }
+
   const handleToggleStatus = async () => {
     if (!agent) return
 
@@ -80,7 +114,7 @@ export default function ChatPage({ params }: ChatPageProps) {
 
     try {
       console.log(`🔄 Toggling agent ${params.id} status to: ${newStatus}`)
-      
+
       const updatedAgent = await toggleAgentStatus(params.id, newStatus)
 
       if (updatedAgent) {
@@ -183,25 +217,59 @@ export default function ChatPage({ params }: ChatPageProps) {
 
   return (
     <div className="flex h-full relative">
-      <AgentContactsList
-        agentId={params.id}
-        selectedContactId={selectedContactId}
-        onSelectContact={setSelectedContactId}
-      />
+      {/* Overlay para mobile quando sidebar está aberta */}
+      {isMobile && !sidebarCollapsed && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40"
+          onClick={() => setSidebarCollapsed(true)}
+        />
+      )}
 
-      <div className="flex-1 flex flex-col">
+      {/* Sidebar de contatos */}
+      <div className={`
+        ${sidebarCollapsed ? (isMobile ? 'w-0' : 'w-16') : 'w-80'}
+        transition-all duration-300 ease-in-out overflow-hidden
+        ${isMobile ? 'fixed left-0 top-0 h-full z-50' : 'relative'}
+        ${isMobile && sidebarCollapsed ? '-translate-x-full' : 'translate-x-0'}
+      `}>
+        <div className={`h-full ${sidebarCollapsed ? 'overflow-hidden' : ''}`}>
+          <AgentContactsList
+            agentId={params.id}
+            selectedContactId={selectedContactId}
+            onSelectContact={handleSelectContact}
+            collapsed={sidebarCollapsed}
+          />
+        </div>
+      </div>
+
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
         {/* Header com informações do agente */}
-        <div className={`px-4 py-3 border-b bg-gradient-to-r transition-all duration-300 ${agent?.status === "active"
+        <div className={`px-4 py-3 border-b bg-gradient-to-r transition-all duration-300 flex-shrink-0 ${agent?.status === "active"
           ? "from-green-50 to-emerald-50 border-green-200 dark:from-green-950 dark:to-emerald-950 dark:border-green-800"
           : "from-red-50 to-rose-50 border-red-200 dark:from-red-950 dark:to-rose-950 dark:border-red-800"
           }`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
+              {/* Botão toggle sidebar */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleSidebar}
+                className="h-8 w-8 flex-shrink-0"
+                title={sidebarCollapsed ? "Mostrar contatos" : "Ocultar contatos"}
+              >
+                {sidebarCollapsed ? (
+                  <Menu className="h-4 w-4" />
+                ) : (
+                  <X className="h-4 w-4" />
+                )}
+              </Button>
+
               <div className={`w-3 h-3 rounded-full animate-pulse ${agent?.status === "active" ? "bg-green-500" : "bg-red-500"
                 }`} />
-              <div>
-                <h2 className="text-lg font-semibold">{agent.name}</h2>
-                <p className={`text-sm ${agent?.status === "active"
+              <div className="min-w-0 flex-1">
+                <h2 className="text-lg font-semibold truncate">{agent.name}</h2>
+                <p className={`text-sm truncate ${agent?.status === "active"
                   ? "text-green-700 dark:text-green-300"
                   : "text-red-700 dark:text-red-300"
                   }`}>
@@ -214,7 +282,7 @@ export default function ChatPage({ params }: ChatPageProps) {
             </div>
 
             {/* Mini status indicator */}
-            <div className={`px-3 py-1 rounded-full text-xs font-medium ${agent?.status === "active"
+            <div className={`px-3 py-1 rounded-full text-xs font-medium flex-shrink-0 ${agent?.status === "active"
               ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
               : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
               }`}>
@@ -223,44 +291,48 @@ export default function ChatPage({ params }: ChatPageProps) {
           </div>
         </div>
 
-        {selectedContactId ? (
-          <ContactChatInterface contactId={selectedContactId} agentId={params.id} />
-        ) : (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center max-w-md mx-auto">
-              <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${agent?.status === "active"
-                ? "bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-300"
-                : "bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-300"
-                }`}>
-                {agent?.status === "active" ? (
-                  <Zap className="h-8 w-8" />
-                ) : (
-                  <ZapOff className="h-8 w-8" />
-                )}
-              </div>
-              <h3 className="text-xl font-semibold mb-2">Chat do {agent.name}</h3>
-              <p className="text-muted-foreground mb-4">
-                Selecione um contato para iniciar a conversa
-              </p>
+        <div className="flex-1 min-h-0 overflow-hidden">
+          {selectedContactId ? (
+            <div className="h-full">
+              <ContactChatInterface contactId={selectedContactId} agentId={params.id} />
+            </div>
+          ) : (
+            <div className="h-full flex items-center justify-center overflow-y-auto">
+              <div className="text-center max-w-md mx-auto p-4">
+                <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${agent?.status === "active"
+                  ? "bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-300"
+                  : "bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-300"
+                  }`}>
+                  {agent?.status === "active" ? (
+                    <Zap className="h-8 w-8" />
+                  ) : (
+                    <ZapOff className="h-8 w-8" />
+                  )}
+                </div>
+                <h3 className="text-xl font-semibold mb-2">Chat do {agent.name}</h3>
+                <p className="text-muted-foreground mb-4">
+                  Selecione um contato para iniciar a conversa
+                </p>
 
-              {/* Status info adicional */}
-              <div className={`p-3 rounded-lg text-sm ${agent?.status === "active"
-                ? "bg-green-50 text-green-700 dark:bg-green-900/50 dark:text-green-300"
-                : "bg-red-50 text-red-700 dark:bg-red-900/50 dark:text-red-300"
-                }`}>
-                {agent?.status === "active"
-                  ? "💡 O agente está ativo e responderá automaticamente às mensagens dos contatos"
-                  : "⚠️ O agente está pausado. Ative-o para que responda automaticamente às mensagens"
-                }
-              </div>
+                {/* Status info adicional */}
+                <div className={`p-3 rounded-lg text-sm ${agent?.status === "active"
+                  ? "bg-green-50 text-green-700 dark:bg-green-900/50 dark:text-green-300"
+                  : "bg-red-50 text-red-700 dark:bg-red-900/50 dark:text-red-300"
+                  }`}>
+                  {agent?.status === "active"
+                    ? "💡 O agente está ativo e responderá automaticamente às mensagens dos contatos"
+                    : "⚠️ O agente está pausado. Ative-o para que responda automaticamente às mensagens"
+                  }
+                </div>
 
-              {/* Dica sobre atalho */}
-              <div className="mt-4 text-xs text-muted-foreground">
-                💡 Dica: Use <kbd className="px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded text-xs font-mono">Ctrl + Space</kbd> para alternar o status rapidamente
+                {/* Dica sobre atalho */}
+                <div className="mt-4 text-xs text-muted-foreground">
+                  💡 Dica: Use <kbd className="px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded text-xs font-mono">Ctrl + Space</kbd> para alternar o status rapidamente
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Botão flutuante de toggle status */}

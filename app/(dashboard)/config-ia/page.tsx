@@ -97,7 +97,7 @@ export default function ConfigIAPage() {
   }
 
   // Filtrar configurações baseado na busca
-  const filteredConfigs = configs.filter(config =>
+  const filteredConfigs = (configs || []).filter(config =>
     config.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
     config.prompt.toLowerCase().includes(searchTerm.toLowerCase())
   )
@@ -147,7 +147,7 @@ export default function ConfigIAPage() {
             <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
             <p className="text-sm font-medium text-blue-700">Total de Configurações</p>
           </div>
-          <p className="text-2xl font-bold text-blue-900 mt-1">{configs.length}</p>
+          <p className="text-2xl font-bold text-blue-900 mt-1">{(configs || []).length}</p>
         </div>
         
         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
@@ -156,7 +156,7 @@ export default function ConfigIAPage() {
             <p className="text-sm font-medium text-green-700">Instâncias Atribuídas</p>
           </div>
           <p className="text-2xl font-bold text-green-900 mt-1">
-            {configs.reduce((acc, config) => acc + (config.evolutionInstances?.length || 0), 0)}
+            {(configs || []).reduce((acc, config) => acc + (config.evolutionInstances?.length || 0), 0)}
           </p>
         </div>
         
@@ -166,7 +166,7 @@ export default function ConfigIAPage() {
             <p className="text-sm font-medium text-purple-700">Instâncias Conectadas</p>
           </div>
           <p className="text-2xl font-bold text-purple-900 mt-1">
-            {configs.reduce((acc, config) => 
+            {(configs || []).reduce((acc, config) =>
               acc + (config.evolutionInstances?.filter(i => i.connectionState === "CONNECTED").length || 0), 0
             )}
           </p>

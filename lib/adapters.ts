@@ -7,7 +7,7 @@ export interface Agent {
   webhookDev: string
   webhookProd: string
   prompt: string
-  status: "active" | "inactive"
+  status: "active" | "inactive" | "development"
   createdAt: Date
   totalMessages: number
   confirmedAppointments: number
@@ -24,7 +24,7 @@ export const configIAToAgent = (config: ConfigIA): Agent => {
     webhookDev: config.webhookUrlDev || '',
     webhookProd: config.webhookUrlProd || '',
     prompt: config.prompt,
-    status: config.status === 'ativo' ? 'active' : 'inactive',
+    status: config.status === 'ativo' ? 'active' : config.status === 'em desenvolvimento' ? 'development' : 'inactive',
     createdAt: new Date(config.createdAt),
     totalMessages: 0, // Será implementado posteriormente com dados reais
     confirmedAppointments: 0, // Será implementado posteriormente com dados reais
@@ -40,7 +40,7 @@ export const agentToCreateConfigIA = (agent: Omit<Agent, 'id' | 'createdAt' | 't
     userId,
     nome: agent.name,
     prompt: agent.prompt,
-    status: agent.status === 'active' ? 'ativo' : 'inativo',
+    status: agent.status === 'active' ? 'ativo' : agent.status === 'development' ? 'em desenvolvimento' : 'inativo',
     webhookUrlProd: agent.webhookProd || undefined,
     webhookUrlDev: agent.webhookDev || undefined,
   }
@@ -52,7 +52,7 @@ export const agentToUpdateConfigIA = (agent: Partial<Agent>) => {
   
   if (agent.name) updateData.nome = agent.name
   if (agent.prompt) updateData.prompt = agent.prompt
-  if (agent.status) updateData.status = agent.status === 'active' ? 'ativo' : 'inativo'
+  if (agent.status) updateData.status = agent.status === 'active' ? 'ativo' : agent.status === 'development' ? 'em desenvolvimento' : 'inativo'
   if (agent.webhookProd !== undefined) updateData.webhookUrlProd = agent.webhookProd || undefined
   if (agent.webhookDev !== undefined) updateData.webhookUrlDev = agent.webhookDev || undefined
   

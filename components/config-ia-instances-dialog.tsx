@@ -40,17 +40,20 @@ export function ConfigIAInstancesDialog({
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
   const [availableInstances, setAvailableInstances] = useState<EvolutionInstanceSummary[]>([])
+  const [assignedInstances, setAssignedInstances] = useState<EvolutionInstanceSummary[]>([])
   const [selectedInstances, setSelectedInstances] = useState<string[]>([])
   const [selectedForRemoval, setSelectedForRemoval] = useState<string[]>([])
 
-  // Carregar instâncias disponíveis quando o dialog abrir
+  // Carregar instâncias quando o dialog abrir
   useEffect(() => {
     if (open) {
+      // Inicializar instâncias atribuídas do configIA
+      setAssignedInstances(configIA.evolutionInstances || [])
       loadAvailableInstances()
       setSelectedInstances([])
       setSelectedForRemoval([])
     }
-  }, [open])
+  }, [open, configIA.evolutionInstances])
 
   const loadAvailableInstances = async () => {
     try {
@@ -91,15 +94,27 @@ export function ConfigIAInstancesDialog({
     try {
       setIsLoading(true)
       const response = await configIAInstancesService.assignInstances(configIA.id, selectedInstances)
-      
+
       if (response.success) {
+        // Encontrar instâncias selecionadas para atribuir
+        const instancesToAssign = availableInstances.filter(instance =>
+          selectedInstances.includes(instance.id)
+        )
+
+        // Atualizar estados locais
+        setAvailableInstances(prev => prev.filter(instance =>
+          !selectedInstances.includes(instance.id)
+        ))
+
+        setAssignedInstances(prev => [...prev, ...instancesToAssign])
+
         toast({
           title: "Sucesso",
           description: response.message || `${selectedInstances.length} instâncias atribuídas com sucesso`,
         })
-        onSuccess()
-        loadAvailableInstances() // Recarregar lista disponível
+
         setSelectedInstances([])
+        onSuccess() // Notificar componente pai para atualizar
       } else {
         toast({
           title: "Erro",
@@ -132,15 +147,27 @@ export function ConfigIAInstancesDialog({
     try {
       setIsLoading(true)
       const response = await configIAInstancesService.unassignInstances(configIA.id, selectedForRemoval)
-      
+
       if (response.success) {
+        // Encontrar instâncias que serão removidas
+        const instancesToRemove = assignedInstances.filter(instance =>
+          selectedForRemoval.includes(instance.id)
+        )
+
+        // Atualizar estados locais
+        setAssignedInstances(prev => prev.filter(instance =>
+          !selectedForRemoval.includes(instance.id)
+        ))
+
+        setAvailableInstances(prev => [...prev, ...instancesToRemove])
+
         toast({
           title: "Sucesso",
           description: response.message || `${selectedForRemoval.length} instâncias desatribuídas com sucesso`,
         })
-        onSuccess()
-        loadAvailableInstances() // Recarregar lista disponível
+
         setSelectedForRemoval([])
+        onSuccess() // Notificar componente pai para atualizar
       } else {
         toast({
           title: "Erro",
@@ -203,8 +230,8 @@ export function ConfigIAInstancesDialog({
           {/* Instâncias Atualmente Atribuídas */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Instâncias Atribuídas ({configIA.evolutionInstances?.length || 0})</h3>
-              {configIA.evolutionInstances && configIA.evolutionInstances.length > 0 && (
+              <h3 className="text-lg font-semibold">Instâncias Atribuídas ({assignedInstances.length})</h3>
+              {assignedInstances.length > 0 && (
                 <Button
                   onClick={handleUnassignInstances}
                   disabled={selectedForRemoval.length === 0 || isLoading}
@@ -218,9 +245,9 @@ export function ConfigIAInstancesDialog({
             </div>
 
             <ScrollArea className="h-48 border rounded-md p-3">
-              {configIA.evolutionInstances && configIA.evolutionInstances.length > 0 ? (
+              {assignedInstances.length > 0 ? (
                 <div className="space-y-2">
-                  {configIA.evolutionInstances.map((instance) => (
+                  {assignedInstances.map((instance) => (
                     <div key={instance.id} className="flex items-center space-x-3 p-2 border rounded hover:bg-gray-50">
                       <Checkbox
                         id={`remove-${instance.id}`}

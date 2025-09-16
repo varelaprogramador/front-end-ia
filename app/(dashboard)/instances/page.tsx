@@ -11,7 +11,7 @@ import { API_BASE_URL } from "@/lib/api-config"
 import type { EvolutionInstance, EvolutionInstanceStats } from "@/lib/types/evolution-instance"
 import { EvolutionInstanceForm } from "@/components/evolution-instance-form"
 import { Plus, Search, Loader2, RefreshCw, Smartphone, Wifi, WifiOff, AlertCircle, Zap, Power, PowerOff, QrCode, Trash2, Settings } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { useToast } from "@/components/ui/use-toast"
 import { useUserId } from "@/lib/use-user-id"
 
 export default function InstancesPage() {
@@ -24,6 +24,7 @@ export default function InstancesPage() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [connectingInstances, setConnectingInstances] = useState<Set<string>>(new Set())
+  const [refreshingInstances, setRefreshingInstances] = useState<Set<string>>(new Set())
   const [qrCodeData, setQrCodeData] = useState<{
     base64: string
     instanceName: string
@@ -104,10 +105,6 @@ export default function InstancesPage() {
     try {
       // 1. Mostrar loading state
       setConnectingInstances(prev => new Set([...prev, instance.id]))
-
-
-
-
 
       if (!instance.serverUrl || !instance.apiKey) {
         throw new Error("Instância não possui configurações válidas (serverUrl ou apiKey)")
@@ -209,7 +206,7 @@ export default function InstancesPage() {
       })
     } finally {
       setConnectingInstances(prev => {
-        const newSet = new Set(prev)
+        const newSet = new Set([...prev])
         newSet.delete(instance.id)
         return newSet
       })
@@ -304,6 +301,56 @@ export default function InstancesPage() {
   // Função para atualizar a lista
   const handleRefresh = () => {
     loadInstances(true)
+  }
+
+  // Função para atualizar status de uma instância específica
+  const handleRefreshInstanceStatus = async (instanceId: string, instanceName: string) => {
+    try {
+      setRefreshingInstances(prev => new Set([...prev, instanceId]))
+
+      const response = await axios.post(`${API_BASE_URL}/evolution-instances/${instanceId}/refresh-status`)
+
+      if (response.data.success) {
+        toast({
+          title: "Status atualizado ✅",
+          description: `Status da instância "${instanceName}" foi atualizado com sucesso.`,
+        })
+        // Recarregar apenas as instâncias para ver as mudanças
+        await loadInstances(true)
+      } else {
+        toast({
+          title: "Erro ao atualizar status",
+          description: response.data.message || "Não foi possível atualizar o status da instância.",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error('Error refreshing instance status:', error)
+
+      let errorMessage = "Ocorreu um erro inesperado ao atualizar o status."
+
+      if (axios.isAxiosError(error)) {
+        if (error.response?.data?.message) {
+          errorMessage = error.response.data.message
+        } else if (error.response?.status === 404) {
+          errorMessage = "Instância não encontrada."
+        } else if (error.response?.status === 500) {
+          errorMessage = "Erro interno do servidor."
+        }
+      }
+
+      toast({
+        title: "Erro ao atualizar status",
+        description: errorMessage,
+        variant: "destructive",
+      })
+    } finally {
+      setRefreshingInstances(prev => {
+        const newSet = new Set([...prev])
+        newSet.delete(instanceId)
+        return newSet
+      })
+    }
   }
 
   // Obter cor do status
@@ -456,12 +503,12 @@ export default function InstancesPage() {
             />
           </div>
           <div className="text-sm text-muted-foreground">
-            {filteredInstances.length} de {instances.length} instâncias
+            {filteredInstances?.length || 0} de {instances?.length || 0} instâncias
           </div>
         </div>
 
         {/* Instances List */}
-        {filteredInstances.length === 0 ? (
+        {(filteredInstances?.length || 0) === 0 ? (
           <div className="text-center py-12">
             <div className="mx-auto w-24 h-24 bg-muted rounded-full flex items-center justify-center mb-4">
               <Smartphone className="h-8 w-8 text-muted-foreground" />
@@ -470,18 +517,18 @@ export default function InstancesPage() {
             <p className="text-muted-foreground mb-4 text-pretty">
               {searchTerm
                 ? "Tente ajustar sua busca ou criar uma nova instância"
-                : instances.length === 0
+                : (instances?.length || 0) === 0
                   ? "Comece criando sua primeira instância do Evolution API"
                   : "Nenhuma instância corresponde à sua busca"
               }
             </p>
             <Button onClick={handleCreateInstance}>
-              {instances.length === 0 ? "Criar Primeira Instância" : "Criar Nova Instância"}
+              {(instances?.length || 0) === 0 ? "Criar Primeira Instância" : "Criar Nova Instância"}
             </Button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredInstances.map((instance) => (
+            {(filteredInstances || []).map((instance) => (
               <Card key={instance.id} className="hover:shadow-md transition-shadow">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
@@ -552,6 +599,26 @@ export default function InstancesPage() {
                         )}
                       </Button>
                     )}
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleRefreshInstanceStatus(instance.id, instance.instanceName)}
+                      disabled={refreshingInstances.has(instance.id)}
+                      className="flex items-center gap-1"
+                    >
+                      {refreshingInstances.has(instance.id) ? (
+                        <>
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          Atualizando...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="h-3 w-3" />
+                          Atualizar Status
+                        </>
+                      )}
+                    </Button>
 
                     <Button
                       variant="outline"

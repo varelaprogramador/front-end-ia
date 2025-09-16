@@ -156,10 +156,10 @@ export const cloneAgent = async (
 // Função para alterar status do agente
 export const toggleAgentStatus = async (
   id: string,
-  newStatus: "active" | "inactive"
+  newStatus: "active" | "inactive" | "development"
 ): Promise<Agent | null> => {
   try {
-    const status = newStatus === "active" ? "ativo" : "inativo";
+    const status = newStatus === "active" ? "ativo" : newStatus === "development" ? "em desenvolvimento" : "inativo";
     console.log(`🔄 Updating agent ${id} status to: ${status}`);
     
     const response = await configIAService.updateStatus(id, status);

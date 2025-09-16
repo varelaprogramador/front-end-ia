@@ -13,15 +13,15 @@ interface AgentCardProps {
   onEdit?: (agent: Agent) => void
   onDelete?: (agentId: string) => void
   onManageInstances?: (agent: Agent) => void
-  onToggleStatus?: (agentId: string, newStatus: "active" | "inactive") => void
+  onToggleStatus?: (agentId: string, newStatus: "active" | "inactive" | "development") => void
   onManageBlockedNumbers?: (agent: Agent) => void
 }
 
 export function AgentCard({ agent, onEdit, onDelete, onManageInstances, onToggleStatus, onManageBlockedNumbers }: AgentCardProps) {
   const [showMenu, setShowMenu] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
-  const statusColor = agent.status === "active" ? "bg-green-500" : "bg-gray-400"
-  const statusText = agent.status === "active" ? "Ativo" : "Inativo"
+  const statusColor = agent.status === "active" ? "bg-green-500" : agent.status === "development" ? "bg-yellow-500" : "bg-gray-400"
+  const statusText = agent.status === "active" ? "Ativo" : agent.status === "development" ? "Em Desenvolvimento" : "Inativo"
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -81,13 +81,20 @@ export function AgentCard({ agent, onEdit, onDelete, onManageInstances, onToggle
                         onClick={(e) => {
                           e.stopPropagation();
                           setShowMenu(false);
-                          const newStatus = agent.status === "active" ? "inactive" : "active";
+                          let newStatus: "active" | "inactive" | "development";
+                          if (agent.status === "active") {
+                            newStatus = "development";
+                          } else if (agent.status === "development") {
+                            newStatus = "inactive";
+                          } else {
+                            newStatus = "active";
+                          }
                           console.log(`Toggle status clicked for agent: ${agent.name}, current: ${agent.status}, new: ${newStatus}`);
                           onToggleStatus(agent.id, newStatus);
                         }}
                       >
                         <Power className="h-4 w-4" />
-                        {agent.status === "active" ? "Desativar" : "Ativar"}
+                        {agent.status === "active" ? "Para Desenvolvimento" : agent.status === "development" ? "Desativar" : "Ativar"}
                       </button>
                     )}
                     <button

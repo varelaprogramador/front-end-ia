@@ -7,6 +7,7 @@ import { AgentCard } from "@/components/agent-card"
 import { AgentForm } from "@/components/agent-form"
 import { ConfigIAInstancesDialog } from "@/components/config-ia-instances-dialog"
 import { DeactivatedAgentsDialog } from "@/components/deactivated-agents-dialog"
+import { KPICards } from "@/components/kpi-cards"
 import { getAgents, deleteAgent, toggleAgentStatus, type Agent } from "@/lib/agents-real"
 import { configIAService } from "@/lib/config-ia-api"
 import { Plus, Search, Loader2, RefreshCw } from "lucide-react"
@@ -163,7 +164,7 @@ export default function WorkspacePage() {
   }
 
   // Função para toggle status do agente
-  const handleToggleStatus = async (agentId: string, newStatus: "active" | "inactive") => {
+  const handleToggleStatus = async (agentId: string, newStatus: "active" | "inactive" | "development") => {
     try {
       console.log(`🔄 Toggling agent ${agentId} status to: ${newStatus}`)
 
@@ -180,11 +181,11 @@ export default function WorkspacePage() {
           agent.id === agentId ? updatedAgent : agent
         ))
 
-        const statusText = newStatus === "active" ? "ativado" : "desativado"
+        const statusText = newStatus === "active" ? "ativado" : newStatus === "development" ? "colocado em desenvolvimento" : "desativado"
         toast({
           title: `Agente ${statusText}`,
           description: `O agente "${updatedAgent.name}" foi ${statusText} com sucesso.`,
-          variant: newStatus === "active" ? "default" : "destructive",
+          variant: newStatus === "active" ? "default" : newStatus === "development" ? "default" : "destructive",
         })
 
         console.log(`✅ Agent ${updatedAgent.name} status updated to: ${updatedAgent.status}`)
@@ -307,6 +308,9 @@ export default function WorkspacePage() {
             </Button>
           </div>
         </div>
+
+        {/* KPI Cards */}
+        <KPICards agents={agents} />
 
         <div className="flex items-center gap-2">
           <div className="relative flex-1 max-w-sm">

@@ -83,13 +83,48 @@ export class ConfigIAInstancesService {
       })
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        // Tentar obter mensagem de erro do servidor
+        let errorMessage = `HTTP error! status: ${response.status}`
+        try {
+          const errorData = await response.text()
+          if (errorData) {
+            const parsedError = JSON.parse(errorData)
+            errorMessage = parsedError.message || errorMessage
+          }
+        } catch (parseError) {
+          console.warn('Could not parse error response:', parseError)
+        }
+        throw new Error(errorMessage)
       }
 
-      return await response.json()
+      // Verificar se a resposta tem conteúdo antes de fazer parse
+      const responseText = await response.text()
+      if (!responseText) {
+        return {
+          success: true,
+          message: 'Instâncias atribuídas com sucesso',
+          data: []
+        }
+      }
+
+      try {
+        return JSON.parse(responseText)
+      } catch (parseError) {
+        console.error('Failed to parse response JSON:', parseError)
+        console.error('Response text:', responseText)
+        return {
+          success: true,
+          message: 'Instâncias atribuídas com sucesso (resposta inválida)',
+          data: []
+        }
+      }
     } catch (error) {
       console.error('Error assigning instances:', error)
-      throw error
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Erro desconhecido ao atribuir instâncias',
+        data: []
+      }
     }
   }
 
@@ -106,13 +141,45 @@ export class ConfigIAInstancesService {
       })
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        // Tentar obter mensagem de erro do servidor
+        let errorMessage = `HTTP error! status: ${response.status}`
+        try {
+          const errorData = await response.text()
+          if (errorData) {
+            const parsedError = JSON.parse(errorData)
+            errorMessage = parsedError.message || errorMessage
+          }
+        } catch (parseError) {
+          console.warn('Could not parse error response:', parseError)
+        }
+        throw new Error(errorMessage)
       }
 
-      return await response.json()
+      // Verificar se a resposta tem conteúdo antes de fazer parse
+      const responseText = await response.text()
+      if (!responseText) {
+        return {
+          success: true,
+          message: 'Instância desatribuída com sucesso'
+        }
+      }
+
+      try {
+        return JSON.parse(responseText)
+      } catch (parseError) {
+        console.error('Failed to parse response JSON:', parseError)
+        console.error('Response text:', responseText)
+        return {
+          success: true,
+          message: 'Instância desatribuída com sucesso (resposta inválida)'
+        }
+      }
     } catch (error) {
       console.error('Error unassigning instance:', error)
-      throw error
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Erro desconhecido ao desatribuir instância'
+      }
     }
   }
 
@@ -130,13 +197,48 @@ export class ConfigIAInstancesService {
       })
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        // Tentar obter mensagem de erro do servidor
+        let errorMessage = `HTTP error! status: ${response.status}`
+        try {
+          const errorData = await response.text()
+          if (errorData) {
+            const parsedError = JSON.parse(errorData)
+            errorMessage = parsedError.message || errorMessage
+          }
+        } catch (parseError) {
+          console.warn('Could not parse error response:', parseError)
+        }
+        throw new Error(errorMessage)
       }
 
-      return await response.json()
+      // Verificar se a resposta tem conteúdo antes de fazer parse
+      const responseText = await response.text()
+      if (!responseText) {
+        return {
+          success: true,
+          message: 'Instâncias desatribuídas com sucesso',
+          data: []
+        }
+      }
+
+      try {
+        return JSON.parse(responseText)
+      } catch (parseError) {
+        console.error('Failed to parse response JSON:', parseError)
+        console.error('Response text:', responseText)
+        return {
+          success: true,
+          message: 'Instâncias desatribuídas com sucesso (resposta inválida)',
+          data: []
+        }
+      }
     } catch (error) {
       console.error('Error unassigning instances:', error)
-      throw error
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Erro desconhecido ao desatribuir instâncias',
+        data: []
+      }
     }
   }
 }

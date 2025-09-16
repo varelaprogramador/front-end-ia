@@ -60,7 +60,7 @@ export function AgentForm({ agent, open, onOpenChange, onSuccess }: AgentFormPro
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!userId) {
       toast({
         title: "Erro",
@@ -88,7 +88,7 @@ export function AgentForm({ agent, open, onOpenChange, onSuccess }: AgentFormPro
           title: "Sucesso",
           description: agent ? "Agente atualizado com sucesso!" : "Agente criado com sucesso!",
         })
-        
+
         onSuccess()
         onOpenChange(false)
 
@@ -169,7 +169,7 @@ export function AgentForm({ agent, open, onOpenChange, onSuccess }: AgentFormPro
             <Label htmlFor="status">Status</Label>
             <Select
               value={formData.status}
-              onValueChange={(value: "active" | "inactive") => setFormData({ ...formData, status: value })}
+              onValueChange={(value: "active" | "inactive" | "development") => setFormData({ ...formData, status: value })}
             >
               <SelectTrigger>
                 <SelectValue />
@@ -177,6 +177,7 @@ export function AgentForm({ agent, open, onOpenChange, onSuccess }: AgentFormPro
               <SelectContent>
                 <SelectItem value="active">Ativo</SelectItem>
                 <SelectItem value="inactive">Inativo</SelectItem>
+                <SelectItem value="development">Em Desenvolvimento</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -187,6 +188,7 @@ export function AgentForm({ agent, open, onOpenChange, onSuccess }: AgentFormPro
               id="prompt"
               value={formData.prompt}
               onChange={(e) => setFormData({ ...formData, prompt: e.target.value })}
+              className="max-h-[50vh]"
               placeholder="Descreva como o agente deve se comportar e quais são suas responsabilidades..."
               rows={4}
               required

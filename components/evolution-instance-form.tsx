@@ -5,17 +5,11 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Switch } from "@/components/ui/switch"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/components/ui/use-toast"
 import type { EvolutionInstance } from "@/lib/types/evolution-instance"
-import { EVOLUTION_EVENTS } from "@/lib/types/evolution-instance"
 import { evolutionInstanceService } from "@/lib/evolution-instance-api"
 import { useUserId } from "@/lib/use-user-id"
-import { X } from "lucide-react"
 
 interface EvolutionInstanceFormProps {
   instance?: EvolutionInstance
@@ -34,44 +28,37 @@ export function EvolutionInstanceForm({ instance, open, onOpenChange, onSuccess 
     instanceName: instance?.instanceName || "",
     evolutionUrl: instance?.serverUrl || "",
     apiKey: instance?.apiKey || "",
-    webhook: instance?.webhookUrl || "",
-    webhookByEvents: instance?.webhookByEvents || false,
-    webhookBase64: instance?.webhookBase64 || false,
+    baseUrl: "", // Nova propriedade para capturar apenas a base URL
   })
 
   // Atualizar o formulário quando a instância mudar
   useEffect(() => {
     if (instance) {
+      // Extrair base URL do webhook URL se existir
+      const baseUrl = instance.webhookUrl
+        ? instance.webhookUrl.replace(/\/webhooks\/receive-evo$/, "")
+        : "";
+
       setFormData({
         instanceName: instance.instanceName || "",
         evolutionUrl: instance.serverUrl || "",
         apiKey: instance.apiKey || "",
-        webhook: instance.webhookUrl || "",
-        webhookByEvents: instance.webhookByEvents || false,
-        webhookBase64: instance.webhookBase64 || false,
+        baseUrl: baseUrl,
       })
-      setSelectedEvents(instance.webhookEvents || [])
+      setSelectedEvents(["MESSAGES_UPSERT"]) // Sempre fixo
     } else {
       // Limpar formulário para nova instância
       setFormData({
         instanceName: "",
         evolutionUrl: "",
         apiKey: "",
-        webhook: "",
-        webhookByEvents: false,
-        webhookBase64: false,
+        baseUrl: "",
       })
-      setSelectedEvents([])
+      setSelectedEvents(["MESSAGES_UPSERT"]) // Sempre fixo
     }
   }, [instance])
 
-  const handleEventToggle = (event: string) => {
-    setSelectedEvents(prev =>
-      prev.includes(event)
-        ? prev.filter(e => e !== event)
-        : [...prev, event]
-    )
-  }
+  // Função removida - eventos são fixos agora
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -90,16 +77,21 @@ export function EvolutionInstanceForm({ instance, open, onOpenChange, onSuccess 
     try {
       let result: EvolutionInstance | null = null
 
+      // Construir URL completa do webhook
+      const webhookUrl = formData.baseUrl
+        ? `${formData.baseUrl.replace(/\/$/, "")}/webhooks/receive-evo`
+        : "";
+
       if (instance) {
         // Atualizando instância existente
         const response = await evolutionInstanceService.updateInstance(instance.id, {
           instanceName: formData.instanceName,
           serverUrl: formData.evolutionUrl,
           apiKey: formData.apiKey,
-          webhookUrl: formData.webhook,
-          webhookByEvents: formData.webhookByEvents,
-          webhookBase64: formData.webhookBase64,
-          webhookEvents: selectedEvents.length > 0 ? selectedEvents : undefined
+          webhookUrl: webhookUrl,
+          webhookByEvents: false, // Sempre false
+          webhookBase64: true, // Sempre true - ativado
+          webhookEvents: ["MESSAGES_UPSERT"] // Sempre fixo
         })
         result = response.data || response.instance || null
       } else {
@@ -108,10 +100,10 @@ export function EvolutionInstanceForm({ instance, open, onOpenChange, onSuccess 
           instanceName: formData.instanceName,
           serverUrl: formData.evolutionUrl,
           apiKey: formData.apiKey,
-          webhookUrl: formData.webhook,
-          webhookByEvents: formData.webhookByEvents,
-          webhookBase64: formData.webhookBase64,
-          webhookEvents: selectedEvents.length > 0 ? selectedEvents : undefined,
+          webhookUrl: webhookUrl,
+          webhookByEvents: false, // Sempre false
+          webhookBase64: true, // Sempre true - ativado
+          webhookEvents: ["MESSAGES_UPSERT"], // Sempre fixo
           userId
         })
         result = response.data || response.instance || null
@@ -132,11 +124,9 @@ export function EvolutionInstanceForm({ instance, open, onOpenChange, onSuccess 
             instanceName: "",
             evolutionUrl: "",
             apiKey: "",
-            webhook: "",
-            webhookByEvents: false,
-            webhookBase64: false,
+            baseUrl: "",
           })
-          setSelectedEvents([])
+          setSelectedEvents(["MESSAGES_UPSERT"])
         }
       } else {
         toast({
@@ -213,81 +203,33 @@ export function EvolutionInstanceForm({ instance, open, onOpenChange, onSuccess 
             <h3 className="text-lg font-semibold">Configurações de Webhook</h3>
 
             <div className="space-y-2">
-              <Label htmlFor="webhook">URL do Webhook (opcional)</Label>
-              <Input
-                id="webhook"
-                type="url"
-                value={formData.webhook}
-                onChange={(e) => setFormData({ ...formData, webhook: e.target.value })}
-                placeholder="https://seu-webhook.com/evolution"
-              />
+              <Label htmlFor="baseUrl">URL Base do Webhook (opcional)</Label>
+              <div className="flex items-center gap-4">
+                <Input
+                  id="baseUrl"
+                  type="url"
+                  value={formData.baseUrl}
+                  className="border-none w-[60%]"
+                  onChange={(e) => setFormData({ ...formData, baseUrl: e.target.value })}
+                  placeholder="https://seu-servidor.com"
+                />
+                <p className="text-sm text-gray-800">/webhooks/receive-evo</p>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                A URL completa do webhook será: <code>{formData.baseUrl ? `${formData.baseUrl.replace(/\/$/, "")}/webhooks/receive-evo` : "{base-url}/webhooks/receive-evo"}</code>
+              </p>
             </div>
 
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="webhookByEvents"
-                checked={formData.webhookByEvents}
-                onCheckedChange={(checked) => setFormData({ ...formData, webhookByEvents: checked })}
-              />
-              <Label htmlFor="webhookByEvents">Webhook por Eventos</Label>
-            </div>
 
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="webhookBase64"
-                checked={formData.webhookBase64}
-                onCheckedChange={(checked) => setFormData({ ...formData, webhookBase64: checked })}
-              />
-              <Label htmlFor="webhookBase64">Webhook Base64</Label>
+            <div className="border p-3 rounded-md">
+              <h4 className="font-medium text-sm mb-2">Configurações Automáticas:</h4>
+              <ul className="text-sm text-muted-foreground space-y-1">
+                <li>• Webhook por eventos: <strong>Desativado</strong> (uma única URL para todos)</li>
+                <li>• Evento monitorado: <strong>MESSAGES_UPSERT</strong> (apenas mensagens)</li>
+                <li>• Base64: <strong>Ativado</strong> (dados em base64 nos webhooks)</li>
+              </ul>
             </div>
           </div>
-
-          {/* Eventos */}
-          {formData.webhookByEvents && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Eventos para Webhook</h3>
-              <p className="text-sm text-muted-foreground">
-                Selecione os eventos que deseja receber no seu webhook:
-              </p>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 border rounded-md">
-                {EVOLUTION_EVENTS.map((event) => (
-                  <div key={event} className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id={event}
-                      checked={selectedEvents.includes(event)}
-                      onChange={() => handleEventToggle(event)}
-                      className="rounded"
-                    />
-                    <Label htmlFor={event} className="text-xs cursor-pointer flex-1">
-                      {event}
-                    </Label>
-                  </div>
-                ))}
-              </div>
-
-              {selectedEvents.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium">Eventos selecionados ({selectedEvents.length}):</p>
-                  <div className="flex flex-wrap gap-1">
-                    {selectedEvents.map((event) => (
-                      <Badge key={event} variant="secondary" className="text-xs">
-                        {event}
-                        <button
-                          type="button"
-                          onClick={() => handleEventToggle(event)}
-                          className="ml-1 hover:text-destructive"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
 
           {/* Botões de Ação */}
           <div className="flex justify-end gap-2 pt-4 border-t">
