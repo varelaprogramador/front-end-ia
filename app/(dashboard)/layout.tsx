@@ -1,6 +1,7 @@
 import type React from "react"
 
 import { MainLayout } from "@/components/main-layout"
+import { WorkspaceProvider } from "@/lib/workspace-context"
 
 export default function RootLayout({
     children,
@@ -9,7 +10,9 @@ export default function RootLayout({
 }>) {
     return (
         <>
-            <MainLayout>{children}</MainLayout>
+            <WorkspaceProvider>
+                <MainLayout>{children}</MainLayout>
+            </WorkspaceProvider>
         </>
 
     )

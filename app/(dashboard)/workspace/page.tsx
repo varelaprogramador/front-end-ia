@@ -8,11 +8,16 @@ import { AgentForm } from "@/components/agent-form"
 import { ConfigIAInstancesDialog } from "@/components/config-ia-instances-dialog"
 import { DeactivatedAgentsDialog } from "@/components/deactivated-agents-dialog"
 import { KPICards } from "@/components/kpi-cards"
-import { getAgents, deleteAgent, toggleAgentStatus, type Agent } from "@/lib/agents-real"
-import { configIAService } from "@/lib/config-ia-api"
+import {
+  getWorkspaceAgents,
+  deleteWorkspaceAgent,
+  toggleWorkspaceAgentStatus,
+  type Agent
+} from "@/lib/workspace-agents"
+import { WorkspaceAPI } from "@/lib/workspace-api"
+import { useWorkspace, useCurrentWorkspaceId } from "@/lib/workspace-context"
 import { Plus, Search, Loader2, RefreshCw } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
-import { useUserId } from "@/lib/use-user-id"
 import type { ConfigIA } from "@/lib/api-config"
 export default function WorkspacePage() {
   const [agents, setAgents] = useState<Agent[]>([])
@@ -27,7 +32,8 @@ export default function WorkspacePage() {
   const [showBlockedNumbersDialog, setShowBlockedNumbersDialog] = useState(false)
   const [selectedAgentForBlocking, setSelectedAgentForBlocking] = useState<Agent | null>(null)
   const { toast } = useToast()
-  const userId = useUserId()
+  const { currentWorkspace } = useWorkspace()
+  const currentWorkspaceId = useCurrentWorkspaceId()
 
   // Função para carregar agentes
   const loadAgents = async (showRefreshLoader = false) => {
@@ -38,15 +44,15 @@ export default function WorkspacePage() {
         setLoading(true)
       }
 
-      if (!userId) {
-        throw new Error("Usuário não autenticado")
+      if (!currentWorkspaceId) {
+        throw new Error("Nenhum workspace selecionado")
       }
 
-      const agentsList = await getAgents(userId)
+      const agentsList = await getWorkspaceAgents(currentWorkspaceId)
       setAgents(agentsList)
       setFilteredAgents(agentsList)
     } catch (error) {
-      console.error('Error loading agents:', error)
+      console.error('Error loading workspace agents:', error)
       toast({
         title: "Erro ao carregar agentes",
         description: "Não foi possível carregar a lista de agentes. Tente novamente.",
@@ -60,10 +66,10 @@ export default function WorkspacePage() {
 
   // Carregar agentes na inicialização
   useEffect(() => {
-    if (userId) {
+    if (currentWorkspaceId) {
       loadAgents()
     }
-  }, [userId])
+  }, [currentWorkspaceId])
 
   // Filtrar agentes baseado na busca
   useEffect(() => {
@@ -96,7 +102,16 @@ export default function WorkspacePage() {
   const handleDeleteAgent = async (agentId: string) => {
     if (confirm("Tem certeza que deseja excluir este agente?")) {
       try {
-        const success = await deleteAgent(agentId)
+        if (!currentWorkspaceId) {
+          toast({
+            title: "Erro",
+            description: "Nenhum workspace selecionado",
+            variant: "destructive",
+          })
+          return
+        }
+
+        const success = await deleteWorkspaceAgent(currentWorkspaceId, agentId)
 
         if (success) {
           toast({
@@ -168,7 +183,16 @@ export default function WorkspacePage() {
     try {
       console.log(`🔄 Toggling agent ${agentId} status to: ${newStatus}`)
 
-      const updatedAgent = await toggleAgentStatus(agentId, newStatus)
+      if (!currentWorkspaceId) {
+        toast({
+          title: "Erro",
+          description: "Nenhum workspace selecionado",
+          variant: "destructive",
+        })
+        return
+      }
+
+      const updatedAgent = await toggleWorkspaceAgentStatus(currentWorkspaceId, agentId, newStatus)
 
       if (updatedAgent) {
         // Atualizar o estado local imediatamente
@@ -205,17 +229,17 @@ export default function WorkspacePage() {
   // Função para gerenciar instâncias do agente
   const handleManageInstances = async (agent: Agent) => {
     try {
-      if (!userId) {
+      if (!currentWorkspaceId) {
         toast({
           title: "Erro",
-          description: "Usuário não autenticado",
+          description: "Nenhum workspace selecionado",
           variant: "destructive",
         })
         return
       }
 
       // Buscar a ConfigIA correspondente ao agente com instâncias
-      const response = await configIAService.getConfigById(agent.id)
+      const response = await WorkspaceAPI.getWorkspaceAgent(currentWorkspaceId, agent.id)
 
       if (response.success && response.data) {
         // Converter para o formato esperado pelo dialog
@@ -287,9 +311,14 @@ export default function WorkspacePage() {
       <div className="flex flex-col gap-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h2 className="text-3xl font-bold text-balance">Meus Agentes</h2>
+            <h2 className="text-3xl font-bold text-balance">
+              {currentWorkspace ? `${currentWorkspace.name} - Agentes` : 'Meus Agentes'}
+            </h2>
             <p className="text-muted-foreground text-pretty">
-              Gerencie seus agentes de IA e suas instâncias Evolution
+              {currentWorkspace
+                ? `Gerencie os agentes de IA do workspace "${currentWorkspace.name}"`
+                : 'Gerencie seus agentes de IA e suas instâncias Evolution'
+              }
             </p>
           </div>
           <div className="flex items-center gap-2">

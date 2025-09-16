@@ -12,14 +12,86 @@ export interface EvolutionInstanceSummary {
   status: "active" | "inactive" | "suspended"
 }
 
+export interface Workspace {
+  id: string
+  name: string
+  description?: string
+  slug: string
+  logoUrl?: string
+  primaryColor?: string
+  isActive: boolean
+  plan: "FREE" | "PRO" | "ENTERPRISE"
+  ownerId: string
+  createdAt: string
+  updatedAt: string
+  owner?: {
+    id: string
+    firstName?: string
+    lastName?: string
+    username?: string
+  }
+  workspaceUsers?: WorkspaceUser[]
+  _count?: {
+    workspaceUsers: number
+    configIAs: number
+    evolutionInstances: number
+  }
+}
+
+export interface WorkspaceUser {
+  id: string
+  workspaceId: string
+  userId: string
+  role: "OWNER" | "ADMIN" | "MEMBER" | "VIEWER"
+  status: "PENDING" | "ACTIVE" | "SUSPENDED" | "DECLINED"
+  invitedBy?: string
+  invitedAt: string
+  joinedAt?: string
+  user?: {
+    id: string
+    firstName?: string
+    lastName?: string
+    username?: string
+    imageUrl?: string
+  }
+}
+
+export interface WorkspaceInvitation {
+  id: string
+  workspaceId: string
+  email: string
+  role: "OWNER" | "ADMIN" | "MEMBER" | "VIEWER"
+  invitedBy: string
+  token: string
+  expiresAt: string
+  acceptedAt?: string
+  acceptedBy?: string
+  createdAt: string
+  updatedAt: string
+  workspace?: {
+    id: string
+    name: string
+    slug: string
+  }
+  inviter?: {
+    id: string
+    firstName?: string
+    lastName?: string
+    username?: string
+  }
+}
+
 export interface ConfigIA {
   id: string;
+  workspaceId: string;
   userId: string;
   nome: string;
   prompt: string;
   status?: string;
   webhookUrlProd?: string;
   webhookUrlDev?: string;
+  totalMessages: number;
+  confirmedAppointments: number;
   createdAt: string;
   updatedAt: string;
   evolutionInstances?: EvolutionInstanceSummary[];
@@ -28,7 +100,6 @@ export interface ConfigIA {
     firstName?: string;
     lastName?: string;
     username?: string;
-    primaryEmailId?: string;
   };
 }
 
@@ -57,7 +128,7 @@ export interface ApiResponse<T = any> {
 }
 
 export interface CreateConfigIARequest {
-  userId: string;
+  workspaceId: string;
   nome: string;
   prompt: string;
   status?: string;

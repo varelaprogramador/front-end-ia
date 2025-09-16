@@ -3,6 +3,7 @@ import { ConfigIA, EvolutionInstanceSummary } from './api-config'
 // Interface Agent do frontend (baseada no arquivo agents.ts existente)
 export interface Agent {
   id: string
+  workspaceId: string
   name: string
   webhookDev: string
   webhookProd: string
@@ -20,14 +21,15 @@ export interface Agent {
 export const configIAToAgent = (config: ConfigIA): Agent => {
   return {
     id: config.id,
+    workspaceId: config.workspaceId,
     name: config.nome,
     webhookDev: config.webhookUrlDev || '',
     webhookProd: config.webhookUrlProd || '',
     prompt: config.prompt,
     status: config.status === 'ativo' ? 'active' : config.status === 'em desenvolvimento' ? 'development' : 'inactive',
     createdAt: new Date(config.createdAt),
-    totalMessages: 0, // Será implementado posteriormente com dados reais
-    confirmedAppointments: 0, // Será implementado posteriormente com dados reais
+    totalMessages: config.totalMessages || 0,
+    confirmedAppointments: config.confirmedAppointments || 0,
     avatar: undefined, // Será implementado posteriormente
     description: config.prompt.length > 100 ? config.prompt.substring(0, 100) + '...' : config.prompt, // Descrição baseada no prompt
     evolutionInstances: config.evolutionInstances || [], // Incluir instâncias Evolution
@@ -35,9 +37,9 @@ export const configIAToAgent = (config: ConfigIA): Agent => {
 }
 
 // Adaptador para converter Agent (frontend) para dados de criação/atualização
-export const agentToCreateConfigIA = (agent: Omit<Agent, 'id' | 'createdAt' | 'totalMessages' | 'confirmedAppointments'>, userId: string) => {
+export const agentToCreateConfigIA = (agent: Omit<Agent, 'id' | 'createdAt' | 'totalMessages' | 'confirmedAppointments'>) => {
   return {
-    userId,
+    workspaceId: agent.workspaceId,
     nome: agent.name,
     prompt: agent.prompt,
     status: agent.status === 'active' ? 'ativo' : agent.status === 'development' ? 'em desenvolvimento' : 'inativo',

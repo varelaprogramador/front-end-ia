@@ -10,9 +10,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useToast } from "@/components/ui/use-toast"
-import type { Agent } from "@/lib/agents-real"
-import { createAgent, updateAgent } from "@/lib/agents-real"
-import { useUserId } from "@/lib/use-user-id"
+import type { Agent } from "@/lib/workspace-agents"
+import { createWorkspaceAgent, updateWorkspaceAgent } from "@/lib/workspace-agents"
+import { useCurrentWorkspaceId } from "@/lib/workspace-context"
 
 interface AgentFormProps {
   agent?: Agent
@@ -23,7 +23,7 @@ interface AgentFormProps {
 
 export function AgentForm({ agent, open, onOpenChange, onSuccess }: AgentFormProps) {
   const { toast } = useToast()
-  const userId = useUserId()
+  const currentWorkspaceId = useCurrentWorkspaceId()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [formData, setFormData] = useState({
     name: agent?.name || "",
@@ -61,10 +61,10 @@ export function AgentForm({ agent, open, onOpenChange, onSuccess }: AgentFormPro
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!userId) {
+    if (!currentWorkspaceId) {
       toast({
         title: "Erro",
-        description: "Usuário não autenticado. Faça login para continuar.",
+        description: "Nenhum workspace selecionado. Selecione um workspace para continuar.",
         variant: "destructive",
       })
       return
@@ -77,10 +77,18 @@ export function AgentForm({ agent, open, onOpenChange, onSuccess }: AgentFormPro
 
       if (agent) {
         // Atualizando agente existente
-        result = await updateAgent(agent.id, formData)
+        result = await updateWorkspaceAgent(currentWorkspaceId, agent.id, formData)
       } else {
         // Criando novo agente
-        result = await createAgent(formData, userId)
+        const agentData = {
+          ...formData,
+          workspaceId: currentWorkspaceId,
+          totalMessages: 0,
+          confirmedAppointments: 0,
+          createdAt: new Date(),
+          evolutionInstances: []
+        }
+        result = await createWorkspaceAgent(currentWorkspaceId, agentData)
       }
 
       if (result) {
