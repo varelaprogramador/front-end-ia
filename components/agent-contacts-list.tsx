@@ -20,6 +20,7 @@ import {
 import { myMessagesService, type Contact, type Message } from "@/lib/my-messages-api"
 import { formatDistanceToNow } from "date-fns"
 import { ptBR } from "date-fns/locale"
+import { useSocket } from "@/lib/socket-context"
 
 interface AgentContactsListProps {
   agentId: string
@@ -42,6 +43,175 @@ export function AgentContactsList({
   const [refreshing, setRefreshing] = useState(false)
   const [agentName, setAgentName] = useState("")
 
+  // ===================================================
+  // WebSocket Integration
+  // ===================================================
+
+  const {
+    socket,
+    joinAgentRoom,
+    leaveAgentRoom,
+    onNewMessage,
+    onContactUpdate,
+    isConnected: socketConnected,
+    status: socketStatus,
+  } = useSocket()
+
+  // Debug WebSocket connection
+  useEffect(() => {
+    console.log(`🔌 [WEBSOCKET-CONTACTS] Status: ${socketStatus}, Connected: ${socketConnected}`)
+  }, [socketStatus, socketConnected])
+
+  // Join agent room for contact updates
+  useEffect(() => {
+    if (!socketConnected || !agentId) {
+      console.log(`⚠️ [WEBSOCKET-CONTACTS] Não entrando no room. socketConnected: ${socketConnected}, agentId: ${agentId}`)
+      return
+    }
+
+    console.log(`🚪 [WEBSOCKET-CONTACTS] Entrando no room do agente: agent:${agentId}`)
+    console.log(`📊 [WEBSOCKET-CONTACTS] Socket.id: ${socket?.id}`)
+    joinAgentRoom(agentId)
+
+    // Teste manual - adicione isso temporariamente para debug
+    if (socket) {
+      console.log(`🧪 [WEBSOCKET-TEST] Configurando listener global de eventos...`)
+
+      // Interceptar TODOS os eventos recebidos para debug
+      socket.onAny((eventName: string, ...args: any[]) => {
+        console.log(`📡 [WEBSOCKET-ALL] Evento recebido:`, {
+          evento: eventName,
+          dados: args,
+          timestamp: new Date().toISOString()
+        })
+      })
+
+      console.log(`✅ [WEBSOCKET-TEST] Listener global configurado. Aguardando eventos do backend...`)
+    }
+
+    return () => {
+      console.log(`🚪 [WEBSOCKET-CONTACTS] Saindo do room do agente: agent:${agentId}`)
+      leaveAgentRoom(agentId)
+
+      if (socket) {
+        socket.offAny()
+      }
+    }
+  }, [socketConnected, agentId, socket, joinAgentRoom, leaveAgentRoom])
+
+  // Listen for new messages to update last message preview
+  useEffect(() => {
+    if (!socketConnected) return
+
+    console.log(`👂 [WEBSOCKET-CONTACTS] Ouvindo novas mensagens para agente ${agentId}`)
+
+    const cleanup = onNewMessage((newMessage) => {
+      console.log(`📨 [WEBSOCKET-CONTACTS] Nova mensagem recebida:`, {
+        messageId: newMessage.messageId || newMessage.id,
+        chatId: newMessage.chatId,
+        senderId: newMessage.senderId,
+        direction: newMessage.direction,
+        timestamp: newMessage.timestamp,
+        content: newMessage.message?.substring(0, 50) || newMessage.content?.substring(0, 50)
+      })
+
+      // Determine the contact ID from the message
+      // For received messages: senderId is the contact
+      // For sent messages: chatId is the contact
+      const contactId = newMessage.direction === "received"
+        ? (newMessage.senderId || newMessage.chatId)
+        : (newMessage.chatId || newMessage.senderId)
+
+      console.log(`🎯 [WEBSOCKET-CONTACTS] ContactId determinado: ${contactId}`)
+
+      // Update last message for this contact - force new object reference
+      setLastMessages(prev => {
+        const updated = {
+          ...prev,
+          [contactId]: { ...newMessage } // Create new message object to ensure reference change
+        }
+        console.log(`✅ [WEBSOCKET-CONTACTS] lastMessages atualizado. Total de contatos com mensagens: ${Object.keys(updated).length}`)
+        console.log(`📝 [WEBSOCKET-CONTACTS] Última mensagem do contato ${contactId}:`, updated[contactId]?.message?.substring(0, 30))
+        return updated
+      })
+
+      // Update contact's last message time and move to top
+      setContacts(prev => {
+        // Check if contact exists in list
+        const contactExists = prev.some(c => c.contactId === contactId)
+
+        if (!contactExists) {
+          console.warn(`⚠️ [WEBSOCKET-CONTACTS] Contato ${contactId} não encontrado na lista. Ignorando atualização.`)
+          return prev
+        }
+
+        const updatedContacts = prev.map(contact =>
+          contact.contactId === contactId
+            ? {
+                ...contact,
+                lastMessageTime: newMessage.timestamp || newMessage.createdAt || new Date().toISOString()
+              }
+            : contact
+        )
+
+        // Sort contacts by last message time (most recent first)
+        const sortedContacts = updatedContacts.sort((a, b) => {
+          const dateA = new Date(a.lastMessageTime || 0).getTime()
+          const dateB = new Date(b.lastMessageTime || 0).getTime()
+          return dateB - dateA // Mais recentes primeiro
+        })
+
+        console.log(`✅ [WEBSOCKET-CONTACTS] Lista de contatos reordenada. Primeiro contato: ${sortedContacts[0]?.contactName}`)
+        return sortedContacts
+      })
+    })
+
+    return cleanup
+  }, [socketConnected, onNewMessage, agentId])
+
+  // Update filtered contacts when contacts, lastMessages or search term changes
+  useEffect(() => {
+    console.log(`🔄 [WEBSOCKET-CONTACTS] Atualizando filteredContacts. Total contacts: ${contacts.length}, searchTerm: "${searchTerm}"`)
+
+    if (!searchTerm) {
+      setFilteredContacts([...contacts]) // Force new array reference
+    } else {
+      const filtered = contacts.filter(contact =>
+        contact.contactName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        contact.contactId.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+      setFilteredContacts(filtered)
+    }
+  }, [searchTerm, contacts, lastMessages])
+
+  // Listen for contact updates (new contacts, etc)
+  useEffect(() => {
+    if (!socketConnected) return
+
+    console.log(`👂 [WEBSOCKET-CONTACTS] Ouvindo atualizações de contatos`)
+
+    const cleanup = onContactUpdate((updatedContact) => {
+      console.log(`👤 [WEBSOCKET-CONTACTS] Contato atualizado:`, updatedContact)
+
+      setContacts(prev => {
+        // Check if contact already exists
+        const existingIndex = prev.findIndex(c => c.contactId === updatedContact.contactId)
+
+        if (existingIndex >= 0) {
+          // Update existing contact
+          const updated = [...prev]
+          updated[existingIndex] = { ...updated[existingIndex], ...updatedContact }
+          return updated
+        } else {
+          // Add new contact
+          return [updatedContact, ...prev]
+        }
+      })
+    })
+
+    return cleanup
+  }, [socketConnected, onContactUpdate])
+
   const loadContacts = async (showRefreshLoader = false) => {
     try {
       if (showRefreshLoader) {
@@ -53,8 +223,15 @@ export function AgentContactsList({
       const response = await myMessagesService.getContactsByAgent(agentId)
 
       if (response.success) {
-        setContacts(response.data)
-        setFilteredContacts(response.data)
+        // Sort contacts by last message time (most recent first)
+        const sortedContacts = response.data.sort((a, b) => {
+          const dateA = new Date(a.lastMessageTime || 0).getTime()
+          const dateB = new Date(b.lastMessageTime || 0).getTime()
+          return dateB - dateA
+        })
+
+        setContacts(sortedContacts)
+        setFilteredContacts(sortedContacts)
         setAgentName(response.metadata.agentName)
 
         // Buscar última mensagem para cada contato
@@ -93,18 +270,6 @@ export function AgentContactsList({
       loadContacts()
     }
   }, [agentId])
-
-  useEffect(() => {
-    if (!searchTerm) {
-      setFilteredContacts(contacts)
-    } else {
-      const filtered = contacts.filter(contact =>
-        contact.contactName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        contact.contactId.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-      setFilteredContacts(filtered)
-    }
-  }, [searchTerm, contacts])
 
   const handleRefresh = () => {
     loadContacts(true)
@@ -155,11 +320,27 @@ export function AgentContactsList({
           <>
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
+                <div className="relative w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
                   <User className="h-6 w-6 text-white" />
+                  {/* Indicador de status WebSocket */}
+                  <div
+                    className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${
+                      socketStatus === 'connected' ? 'bg-green-500' :
+                      socketStatus === 'connecting' ? 'bg-yellow-500 animate-pulse' :
+                      'bg-red-500'
+                    }`}
+                    title={`WebSocket: ${socketStatus}`}
+                  />
                 </div>
                 <div>
-                  <h2 className="font-medium text-lg text-gray-900 dark:text-gray-100">Chats</h2>
+                  <h2 className="font-medium text-lg text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                    Chats
+                    {socketStatus !== 'connected' && (
+                      <span className="text-xs text-yellow-600 dark:text-yellow-400">
+                        ({socketStatus})
+                      </span>
+                    )}
+                  </h2>
                   <p className="text-xs text-gray-500 dark:text-gray-400">{agentName}</p>
                 </div>
               </div>

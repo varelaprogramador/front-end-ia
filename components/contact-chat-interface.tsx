@@ -42,6 +42,7 @@ import {
 import { formatDistanceToNow, format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { toast } from "sonner"
+import { useSocket, useTypingIndicator } from "@/lib/socket-context"
 
 interface ContactChatInterfaceProps {
   contactId: string
@@ -72,6 +73,130 @@ export function ContactChatInterface({ contactId, agentId }: ContactChatInterfac
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const previousContactIdRef = useRef<string | null>(null)
+
+  // ===================================================
+  // WebSocket Integration
+  // ===================================================
+
+  const {
+    joinAgentRoom,
+    leaveAgentRoom,
+    joinContactRoom,
+    leaveContactRoom,
+    onNewMessage,
+    onMessageUpdate,
+    isConnected: socketConnected,
+    status: socketStatus
+  } = useSocket()
+
+  const { isTyping: contactIsTyping, emitTyping } = useTypingIndicator(contactId)
+
+  // Join appropriate socket rooms
+  useEffect(() => {
+    if (!socketConnected || !agentId) return
+
+    console.log(`🚪 [WEBSOCKET] Entrando nos rooms - Agent: ${agentId}, Contact: ${contactId}`)
+
+    // Join agent room for general updates
+    joinAgentRoom(agentId)
+
+    // Join contact-specific room if contact is selected
+    if (contactId) {
+      joinContactRoom(agentId, contactId)
+    }
+
+    // Cleanup: leave rooms when component unmounts or dependencies change
+    return () => {
+      console.log(`🚪 [WEBSOCKET] Saindo dos rooms - Agent: ${agentId}, Contact: ${contactId}`)
+      leaveAgentRoom(agentId)
+      if (contactId) {
+        leaveContactRoom(agentId, contactId)
+      }
+    }
+  }, [socketConnected, agentId, contactId, joinAgentRoom, leaveAgentRoom, joinContactRoom, leaveContactRoom])
+
+  // Listen for new messages via WebSocket
+  useEffect(() => {
+    if (!socketConnected) return
+
+    console.log(`👂 [WEBSOCKET] Ouvindo novas mensagens para contact: ${contactId}`)
+
+    const cleanupNewMessage = onNewMessage((newMessage) => {
+      console.log(`📨 [WEBSOCKET] Nova mensagem recebida:`, newMessage)
+
+      // Only add if it's for this contact
+      if (newMessage.chatId === contactId || newMessage.senderId === contactId) {
+        setMessages((prev) => {
+          // Check if message already exists (avoid duplicates)
+          const exists = prev.some(msg => msg.messageId === newMessage.messageId || msg.id === newMessage.id)
+          if (exists) {
+            console.log(`⚠️ [WEBSOCKET] Mensagem duplicada ignorada:`, newMessage.messageId)
+            return prev
+          }
+
+          // Add new message and sort
+          const updated = [...prev, newMessage].sort((a, b) => {
+            const dateA = new Date(a.timestamp || a.createdAt || 0).getTime()
+            const dateB = new Date(b.timestamp || b.createdAt || 0).getTime()
+            return dateA - dateB
+          })
+
+          console.log(`✅ [WEBSOCKET] Mensagem adicionada. Total: ${updated.length}`)
+          return updated
+        })
+
+        // Show toast notification for received messages (apenas se for de outro usuário)
+        if (newMessage.direction === "received" && !newMessage.isAiResponse) {
+          toast.info(`Nova mensagem de ${newMessage.senderName || contactId}`, {
+            description: newMessage.message?.substring(0, 50) + (newMessage.message?.length > 50 ? '...' : ''),
+            duration: 3000
+          })
+        } else if (newMessage.isAiResponse) {
+          // Notificação discreta para resposta da IA
+          toast.success(`IA respondeu`, {
+            description: newMessage.aiResponse?.substring(0, 50) + (newMessage.aiResponse && newMessage.aiResponse.length > 50 ? '...' : ''),
+            duration: 2000
+          })
+        }
+      } else {
+        console.log(`⏭️ [WEBSOCKET] Mensagem ignorada - não é para este contato (atual: ${contactId}, msg: ${newMessage.chatId || newMessage.senderId})`)
+      }
+    })
+
+    const cleanupMessageUpdate = onMessageUpdate((updatedMessage) => {
+      console.log(`🔄 [WEBSOCKET] Mensagem atualizada:`, updatedMessage)
+
+      setMessages((prev) =>
+        prev.map(msg =>
+          msg.messageId === updatedMessage.messageId || msg.id === updatedMessage.id
+            ? { ...msg, ...updatedMessage }
+            : msg
+        )
+      )
+    })
+
+    return () => {
+      cleanupNewMessage()
+      cleanupMessageUpdate()
+    }
+  }, [socketConnected, contactId, onNewMessage, onMessageUpdate])
+
+  // Emit typing event when user types
+  useEffect(() => {
+    if (newMessage.trim().length > 0) {
+      emitTyping(true)
+
+      // Stop typing indicator after 1 second of no typing
+      const timeout = setTimeout(() => {
+        emitTyping(false)
+      }, 1000)
+
+      return () => clearTimeout(timeout)
+    } else {
+      emitTyping(false)
+    }
+  }, [newMessage, emitTyping])
 
   const loadMessages = async (showRefreshLoader = false) => {
     try {
@@ -94,7 +219,33 @@ export function ContactChatInterface({ contactId, agentId }: ContactChatInterfac
           return dateA - dateB // Mais antigas primeiro
         })
 
-        setMessages(sortedMessages)
+        // Mesclar com mensagens existentes, removendo duplicatas
+        setMessages(currentMessages => {
+          // Criar mapa de mensagens existentes por ID
+          const existingMap = new Map<string, Message>()
+          currentMessages.forEach(msg => {
+            const key = msg.messageId || msg.id
+            existingMap.set(key, msg)
+          })
+
+          // Adicionar mensagens do servidor, mantendo as mais recentes
+          sortedMessages.forEach(msg => {
+            const key = msg.messageId || msg.id
+            if (!existingMap.has(key)) {
+              existingMap.set(key, msg)
+            }
+          })
+
+          // Converter de volta para array e ordenar
+          const mergedMessages = Array.from(existingMap.values()).sort((a, b) => {
+            const dateA = new Date(a.timestamp || a.createdAt || 0).getTime()
+            const dateB = new Date(b.timestamp || b.createdAt || 0).getTime()
+            return dateA - dateB
+          })
+
+          console.log(`📨 [MESSAGES] Mescladas ${mergedMessages.length} mensagens (${currentMessages.length} existentes + ${sortedMessages.length} do servidor)`)
+          return mergedMessages
+        })
 
         // Extrair informações do contato da mensagem mais recente
         if (response.data.length > 0) {
@@ -227,15 +378,26 @@ export function ContactChatInterface({ contactId, agentId }: ContactChatInterfac
 
   useEffect(() => {
     if (contactId && agentId) {
-      console.log(`🔄 [CHAT] Carregando mensagens para contato ${contactId} do agente ${agentId}`)
+      // Verificar se o contato realmente mudou
+      const contactChanged = previousContactIdRef.current !== contactId
 
-      // Reset do estado quando muda o contato
-      setMessages([])
+      if (contactChanged) {
+        console.log(`🔄 [CHAT] Trocando de contato: ${previousContactIdRef.current} → ${contactId}`)
+
+        // Limpar mensagens ao trocar de contato
+        setMessages([])
+        previousContactIdRef.current = contactId
+      } else {
+        console.log(`🔄 [CHAT] Recarregando mensagens para contato ${contactId}`)
+      }
+
+      // Reset do estado
       setContactName(contactId)
       setContactInfo(null)
       setIsContactDeactivated(false)
       setDeactivatedAgent(null)
 
+      // Carregar mensagens do servidor (vai mesclar com WebSocket)
       loadMessages()
       checkContactDeactivationStatus()
     }
@@ -243,7 +405,12 @@ export function ContactChatInterface({ contactId, agentId }: ContactChatInterfac
 
   useEffect(() => {
     // Scroll to bottom when messages change
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+    // Usar timeout para garantir que o DOM foi atualizado
+    const timeoutId = setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+    }, 100)
+
+    return () => clearTimeout(timeoutId)
   }, [messages])
 
   // Cleanup recording interval on unmount
@@ -427,7 +594,7 @@ export function ContactChatInterface({ contactId, agentId }: ContactChatInterfac
 
   const formatRecordingTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
+    const secs = Math.floor(seconds % 60)
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
@@ -753,33 +920,7 @@ export function ContactChatInterface({ contactId, agentId }: ContactChatInterfac
           </div>
         )}
 
-        {/* Botão Interpretar */}
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full h-8 text-xs"
-          onClick={handleTranscribe}
-          disabled={isTranscribing}
-        >
-          {isTranscribing ? (
-            <>
-              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-              Interpretando...
-            </>
-          ) : (
-            <>
-              <File className="h-3 w-3 mr-1" />
-              Interpretar Áudio
-            </>
-          )}
-        </Button>
 
-        {/* Transcrição */}
-        {transcription && (
-          <div className="p-2 rounded bg-white/20 border border-white/30">
-            <p className="text-xs italic">{transcription}</p>
-          </div>
-        )}
       </div>
     )
   }
@@ -890,7 +1031,9 @@ export function ContactChatInterface({ contactId, agentId }: ContactChatInterfac
                 <span className="truncate">
                   {isContactDeactivated
                     ? "IA desativada"
-                    : "online"
+                    : contactIsTyping
+                      ? "digitando..."
+                      : "online"
                   }
                 </span>
                 {contactInfo?.instanceName && (
@@ -904,6 +1047,19 @@ export function ContactChatInterface({ contactId, agentId }: ContactChatInterfac
                     </div>
                   </>
                 )}
+                {/* WebSocket connection indicator */}
+                <span>•</span>
+                <div className="flex items-center space-x-1" title={`WebSocket: ${socketStatus}`}>
+                  <div className={`w-2 h-2 rounded-full ${socketConnected
+                      ? "bg-green-500 animate-pulse"
+                      : socketStatus === "connecting"
+                        ? "bg-yellow-500 animate-pulse"
+                        : "bg-red-500"
+                    }`} />
+                  <span className="text-xs">
+                    {socketConnected ? "conectado" : socketStatus === "connecting" ? "conectando" : "desconectado"}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
