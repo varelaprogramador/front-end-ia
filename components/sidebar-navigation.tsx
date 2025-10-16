@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useUser } from "@clerk/nextjs"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
@@ -23,11 +24,13 @@ import {
   HelpCircle,
   Plus,
   Smartphone,
+  User,
 } from "lucide-react"
 
 export function SidebarNavigation() {
   const pathname = usePathname()
   const userId = useUserId()
+  const { user } = useUser()
   const { isCollapsed, isMobile } = useSidebar()
   const [isAgentsOpen, setIsAgentsOpen] = useState(true)
   const [agents, setAgents] = useState<Agent[]>([])
@@ -89,14 +92,39 @@ export function SidebarNavigation() {
   // Determinar qual logo usar baseado no tema
   const getCurrentLogo = () => {
     if (!systemConfig) return null
-    
-    // Se há logo específica para modo escuro e estamos no modo escuro, use ela
-    if (isDarkMode && systemConfig.logoUrlDark) {
-      return systemConfig.logoUrlDark
+    return (isDarkMode && systemConfig.logoUrlDark) ? systemConfig.logoUrlDark : systemConfig.logoUrl
+  }
+
+  // Componente Logo reutilizável
+  const Logo = ({ size = "normal" }: { size?: "normal" | "small" }) => {
+    const logoUrl = getCurrentLogo()
+    const sizeClass = size === "small" ? "w-8 h-8" : "w-9 h-9"
+    const iconSizeClass = size === "small" ? "h-4 w-4" : "h-5 w-5"
+
+    if (logoUrl) {
+      return (
+        <div className={`${sizeClass} rounded-lg overflow-hidden bg-sidebar-accent flex-shrink-0`}>
+          <img
+            src={logoUrl}
+            alt={systemConfig?.systemName || 'Logo'}
+            className="w-full h-full object-contain"
+            onError={(e) => {
+              e.currentTarget.style.display = 'none'
+              e.currentTarget.nextElementSibling?.classList.remove('hidden')
+            }}
+          />
+          <div className="hidden p-2 bg-sidebar-primary rounded-lg">
+            <Bot className={`${iconSizeClass} text-sidebar-primary-foreground`} />
+          </div>
+        </div>
+      )
     }
-    
-    // Caso contrário, use a logo padrão
-    return systemConfig.logoUrl
+
+    return (
+      <div className={`p-2 bg-sidebar-primary rounded-lg flex-shrink-0 ${sizeClass}`}>
+        <Bot className={`${iconSizeClass} text-sidebar-primary-foreground`} />
+      </div>
+    )
   }
 
   const mainNavItems = [
@@ -120,61 +148,32 @@ export function SidebarNavigation() {
     },
   ]
 
+  const isCollapsedView = isCollapsed && !isMobile
+
   return (
-    <div className={`${isCollapsed && !isMobile ? 'w-16' : 'w-64'} bg-sidebar border-r border-sidebar-border h-full flex flex-col transition-all duration-300`}>
+    <div className={cn(
+      "bg-sidebar border-r border-sidebar-border h-full flex flex-col transition-all duration-300",
+      isCollapsedView ? 'w-16' : 'w-64'
+    )}>
       {/* Logo/Brand */}
-      <div className={`${isCollapsed && !isMobile ? 'p-3' : 'p-6'} border-b border-sidebar-border`}>
-        {isCollapsed && !isMobile ? (
-          // Layout colapsado - apenas logo
-          <div className="flex justify-center">
-            {getCurrentLogo() ? (
-              <div className="w-9 h-9 rounded-lg overflow-hidden bg-sidebar-accent flex-shrink-0" title={systemConfig?.systemName || 'AI Manager'}>
-                <img
-                  src={getCurrentLogo()!}
-                  alt={systemConfig?.systemName || 'Logo'}
-                  className="w-full h-full object-contain"
-                  onError={(e) => {
-                    // Fallback para ícone padrão se a imagem falhar
-                    e.currentTarget.style.display = 'none'
-                    e.currentTarget.nextElementSibling?.classList.remove('hidden')
-                  }}
-                />
-                <div className="hidden p-2 bg-sidebar-primary rounded-lg">
-                  <Bot className="h-5 w-5 text-sidebar-primary-foreground" />
-                </div>
-              </div>
-            ) : (
-              <div className="p-2 bg-sidebar-primary rounded-lg flex-shrink-0" title={systemConfig?.systemName || 'AI Manager'}>
-                <Bot className="h-5 w-5 text-sidebar-primary-foreground" />
-              </div>
-            )}
+      <div className={cn(
+        "border-b border-sidebar-border transition-all",
+        isCollapsedView ? 'p-3' : 'p-4'
+      )}>
+        {isCollapsedView ? (
+          // Layout colapsado - logo e theme toggle verticais
+          <div className="flex flex-col items-center gap-3">
+            <div title={systemConfig?.systemName || 'AI Manager'}>
+              <Logo size="small" />
+            </div>
+            <ThemeToggle />
           </div>
         ) : (
-          // Layout expandido - layout normal
+          // Layout expandido - layout horizontal completo
           <div className="flex items-center gap-3">
-            {getCurrentLogo() ? (
-              <div className="w-9 h-9 rounded-lg overflow-hidden bg-sidebar-accent flex-shrink-0">
-                <img
-                  src={getCurrentLogo()!}
-                  alt={systemConfig?.systemName || 'Logo'}
-                  className="w-full h-full object-contain"
-                  onError={(e) => {
-                    // Fallback para ícone padrão se a imagem falhar
-                    e.currentTarget.style.display = 'none'
-                    e.currentTarget.nextElementSibling?.classList.remove('hidden')
-                  }}
-                />
-                <div className="hidden p-2 bg-sidebar-primary rounded-lg">
-                  <Bot className="h-5 w-5 text-sidebar-primary-foreground" />
-                </div>
-              </div>
-            ) : (
-              <div className="p-2 bg-sidebar-primary rounded-lg flex-shrink-0">
-                <Bot className="h-5 w-5 text-sidebar-primary-foreground" />
-              </div>
-            )}
+            <Logo />
             <div className="flex-1 min-w-0">
-              <h2 className="font-bold text-sidebar-foreground text-balance truncate">
+              <h2 className="font-semibold text-sidebar-foreground truncate">
                 {systemConfig?.systemName || 'AI Manager'}
               </h2>
               <p className="text-xs text-muted-foreground truncate">
@@ -187,8 +186,11 @@ export function SidebarNavigation() {
       </div>
 
       {/* Navigation */}
-      <div className={`flex-1 overflow-y-auto ${isCollapsed && !isMobile ? 'p-2' : 'p-4'}`}>
-        <nav className="space-y-2">
+      <div className={cn(
+        "flex-1 overflow-y-auto",
+        isCollapsedView ? 'p-2' : 'p-3'
+      )}>
+        <nav className="space-y-1.5">
           {/* Main Navigation */}
           <div className="space-y-1">
             {mainNavItems.map((item) => {
@@ -198,17 +200,17 @@ export function SidebarNavigation() {
                   key={item.href}
                   variant={isActive(item.href) ? "secondary" : "ghost"}
                   className={cn(
-                    "w-full h-10",
-                    isCollapsed && !isMobile ? "justify-center p-0" : "justify-start gap-3",
+                    "w-full h-9 transition-all",
+                    isCollapsedView ? "justify-center p-0" : "justify-start gap-3",
                     isActive(item.href) && "bg-sidebar-accent text-sidebar-accent-foreground",
                   )}
-                  title={isCollapsed && !isMobile ? item.title : undefined}
+                  title={isCollapsedView ? item.title : undefined}
                   asChild
                 >
                   <Link href={item.href}>
-                    <Icon className="h-4 w-4" />
-                    {(!isCollapsed || isMobile) && (
-                      <span className="flex-1 text-left">{item.title}</span>
+                    <Icon className="h-4 w-4 flex-shrink-0" />
+                    {!isCollapsedView && (
+                      <span className="flex-1 text-left text-sm">{item.title}</span>
                     )}
                   </Link>
                 </Button>
@@ -216,55 +218,57 @@ export function SidebarNavigation() {
             })}
           </div>
 
-          {/* Agents Section */}
-          {(!isCollapsed || isMobile) && (
-            <div className="pt-4">
+          {/* Agents Section - Expandido */}
+          {!isCollapsedView && (
+            <div className="pt-3 border-t border-sidebar-border/50 mt-3">
               <Collapsible open={isAgentsOpen} onOpenChange={setIsAgentsOpen}>
                 <CollapsibleTrigger asChild>
-                  <Button variant="ghost" className="w-full justify-start gap-2 h-8 text-sm font-medium">
-                    {isAgentsOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                  <Button variant="ghost" className="w-full justify-start gap-2 h-8 text-xs font-medium hover:bg-sidebar-accent">
+                    {isAgentsOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
                     <span>Meus Agentes</span>
-                    <Badge variant="secondary" className="ml-auto text-xs">
+                    <Badge variant="secondary" className="ml-auto text-[10px] px-1.5">
                       {isLoading ? "..." : agents.length}
                     </Badge>
                   </Button>
                 </CollapsibleTrigger>
-                <CollapsibleContent className="space-y-1 mt-2">
+                <CollapsibleContent className="space-y-0.5 mt-1.5">
                   {isLoading ? (
                     <div className="pl-6 py-2">
                       <p className="text-xs text-muted-foreground">Carregando agentes...</p>
                     </div>
                   ) : agents.map((agent) => (
-                    <div key={agent.id} className="space-y-1">
+                    <div key={agent.id} className="space-y-0.5">
                       <Button
                         variant={isActive(`/agent/${agent.id}`) ? "secondary" : "ghost"}
                         className={cn(
-                          "w-full justify-start gap-3 h-9 pl-6",
-                          isActive(`/agent/${agent.id}`) && "bg-sidebar-accent text-sidebar-accent-foreground",
+                          "w-full justify-start gap-2.5 h-8 pl-5 text-sm hover:bg-sidebar-accent transition-all",
+                          isActive(`/agent/${agent.id}`) && "bg-sidebar-accent text-sidebar-accent-foreground font-medium",
                         )}
                         asChild
                       >
                         <Link href={`/agent/${agent.id}`}>
-                          <div className="flex items-center gap-2 flex-1">
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
                             <div
-                              className={`w-2 h-2 rounded-full ${agent.status === "active" ? "bg-green-500" : "bg-gray-400"
-                                }`}
+                              className={cn(
+                                "w-1.5 h-1.5 rounded-full flex-shrink-0",
+                                agent.status === "active" ? "bg-green-500" : "bg-gray-400"
+                              )}
                             />
-                            <span className="text-sm truncate text-balance">{agent.name}</span>
+                            <span className="truncate">{agent.name}</span>
                           </div>
-                          <BarChart3 className="h-3 w-3 opacity-60" />
+                          <BarChart3 className="h-3 w-3 opacity-50 flex-shrink-0" />
                         </Link>
                       </Button>
                       <Button
                         variant={isActive(`/agent/${agent.id}/chat`) ? "secondary" : "ghost"}
                         className={cn(
-                          "w-full justify-start gap-3 h-8 pl-8 text-xs",
+                          "w-full justify-start gap-2 h-7 pl-7 text-xs hover:bg-sidebar-accent transition-all",
                           isActive(`/agent/${agent.id}/chat`) && "bg-sidebar-accent text-sidebar-accent-foreground",
                         )}
                         asChild
                       >
                         <Link href={`/agent/${agent.id}/chat`}>
-                          <MessageSquare className="h-3 w-3" />
+                          <MessageSquare className="h-3 w-3 opacity-60" />
                           <span>Chat</span>
                         </Link>
                       </Button>
@@ -272,31 +276,27 @@ export function SidebarNavigation() {
                   ))}
 
                   {!isLoading && agents.length === 0 && (
-                    <div className="pl-6 py-2">
-                      <p className="text-xs text-muted-foreground text-pretty">Nenhum agente criado ainda</p>
+                    <div className="pl-5 py-2">
+                      <p className="text-xs text-muted-foreground">Nenhum agente criado ainda</p>
                     </div>
                   )}
 
-                  <Button variant="ghost" className="w-full justify-start gap-3 h-8 pl-6 text-xs" asChild>
-                    <Link href="/workspace">
-                      <Plus className="h-3 w-3" />
-                      <span>Novo Agente</span>
-                    </Link>
-                  </Button>
+
+
                 </CollapsibleContent>
               </Collapsible>
             </div>
           )}
 
           {/* Agents collapsed - apenas ícones */}
-          {isCollapsed && !isMobile && agents.length > 0 && (
-            <div className="pt-4 space-y-1">
-              {agents.slice(0, 3).map((agent) => (
+          {isCollapsedView && agents.length > 0 && (
+            <div className="pt-3 space-y-1 border-t border-sidebar-border/50 mt-3">
+              {agents.slice(0, 4).map((agent) => (
                 <Button
                   key={agent.id}
                   variant={isActive(`/agent/${agent.id}`) ? "secondary" : "ghost"}
                   className={cn(
-                    "w-full h-10 justify-center p-0",
+                    "w-full h-9 justify-center p-0 transition-all",
                     isActive(`/agent/${agent.id}`) && "bg-sidebar-accent text-sidebar-accent-foreground",
                   )}
                   title={agent.name}
@@ -306,18 +306,19 @@ export function SidebarNavigation() {
                     <div className="relative">
                       <Bot className="h-4 w-4" />
                       <div
-                        className={`absolute -bottom-1 -right-1 w-2 h-2 rounded-full border border-sidebar ${
+                        className={cn(
+                          "absolute -bottom-0.5 -right-0.5 w-1.5 h-1.5 rounded-full border border-sidebar",
                           agent.status === "active" ? "bg-green-500" : "bg-gray-400"
-                        }`}
+                        )}
                       />
                     </div>
                   </Link>
                 </Button>
               ))}
-              {agents.length > 3 && (
-                <div className="flex justify-center">
-                  <Badge variant="secondary" className="text-xs">
-                    +{agents.length - 3}
+              {agents.length > 4 && (
+                <div className="flex justify-center pt-1">
+                  <Badge variant="secondary" className="text-[10px] px-1.5 h-5">
+                    +{agents.length - 4}
                   </Badge>
                 </div>
               )}
@@ -326,17 +327,54 @@ export function SidebarNavigation() {
         </nav>
       </div>
 
-      {/* Footer */}
-      {(!isCollapsed || isMobile) && (
-        <div className="p-4 border-t border-sidebar-border">
-          <Button variant="ghost" className="w-full justify-start gap-3 h-9" asChild>
-            <Link href="/help">
-              <HelpCircle className="h-4 w-4" />
-              <span>Ajuda & Suporte</span>
-            </Link>
-          </Button>
+      {/* User Section */}
+      {user && (
+        <div className={cn(
+          "border-t border-sidebar-border transition-all",
+          isCollapsedView ? 'p-2' : 'p-3'
+        )}>
+          {isCollapsedView ? (
+            // Layout colapsado - apenas avatar
+            <div className="flex justify-center">
+              <div className="w-8 h-8 rounded-full bg-sidebar-primary flex items-center justify-center text-sidebar-primary-foreground overflow-hidden">
+                {user.imageUrl ? (
+                  <img
+                    src={user.imageUrl}
+                    alt={user.fullName || 'User'}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <User className="h-4 w-4" />
+                )}
+              </div>
+            </div>
+          ) : (
+            // Layout expandido - avatar + info
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-sidebar-primary flex items-center justify-center text-sidebar-primary-foreground overflow-hidden flex-shrink-0">
+                {user.imageUrl ? (
+                  <img
+                    src={user.imageUrl}
+                    alt={user.fullName || 'User'}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <User className="h-5 w-5" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-sidebar-foreground truncate">
+                  {user.fullName || user.firstName || 'Usuário'}
+                </p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {user.primaryEmailAddress?.emailAddress || ''}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       )}
+
     </div>
   )
 }

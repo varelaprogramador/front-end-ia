@@ -100,7 +100,10 @@ class SystemConfigService {
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
     try {
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      const url = `${API_BASE_URL}${endpoint}`;
+      console.log('📡 [API] Request:', { method: options.method || 'GET', url });
+
+      const response = await fetch(url, {
         headers: {
           'Content-Type': 'application/json',
           ...options.headers,
@@ -108,13 +111,38 @@ class SystemConfigService {
         ...options,
       })
 
+      console.log('📥 [API] Response status:', response.status);
+      console.log('📥 [API] Response headers:', {
+        contentType: response.headers.get('content-type'),
+        contentLength: response.headers.get('content-length'),
+      });
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
 
-      return await response.json()
+      // Verificar se há conteúdo para fazer parse
+      const responseText = await response.text()
+      console.log('📥 [API] Response text length:', responseText.length);
+
+      // Se a resposta está vazia
+      if (!responseText.trim()) {
+        console.warn('⚠️ [API] Empty response body');
+        return { success: true, data: null as T }
+      }
+
+      // Tentar fazer parse do JSON
+      try {
+        const parsed = JSON.parse(responseText);
+        console.log('✅ [API] Parsed response:', parsed);
+        return parsed;
+      } catch (parseError) {
+        console.error('❌ [API] JSON parse error:', parseError);
+        console.error('❌ [API] Response text:', responseText);
+        throw new Error('Failed to parse JSON response');
+      }
     } catch (error) {
-      console.error(`API request failed for ${endpoint}:`, error)
+      console.error(`❌ [API] Request failed for ${endpoint}:`, error)
       return {
         success: false,
         message: error instanceof Error ? error.message : 'Request failed',

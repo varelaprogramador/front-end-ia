@@ -21,7 +21,10 @@ class ConfigIAService {
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
     try {
-      const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      const url = `${this.baseUrl}${endpoint}`;
+      console.log('📡 [API] Request:', { method: options.method || 'GET', url });
+
+      const response = await fetch(url, {
         ...options,
         headers: {
           'Content-Type': 'application/json',
@@ -29,31 +32,38 @@ class ConfigIAService {
         },
       })
 
+      console.log('📥 [API] Response status:', response.status);
+      console.log('📥 [API] Response headers:', {
+        contentType: response.headers.get('content-type'),
+        contentLength: response.headers.get('content-length'),
+      });
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
 
-      // Verificar se há conteúdo na resposta antes de fazer parse JSON
-      const contentType = response.headers.get('content-type')
-      const contentLength = response.headers.get('content-length')
-      
-      // Se não há content-type JSON ou content-length é 0, retornar resposta padrão
-      if (!contentType?.includes('application/json') || contentLength === '0') {
-        console.warn('Response has no JSON content, returning default response')
-        return { success: true, data: null as T }
-      }
-
+      // Sempre tentar fazer parse do JSON, independente dos headers
       const responseText = await response.text()
-      
-      // Se a resposta está vazia, retornar resposta padrão
+      console.log('📥 [API] Response text length:', responseText.length);
+
+      // Se a resposta está vazia
       if (!responseText.trim()) {
-        console.warn('Empty response body, returning default response')
+        console.warn('⚠️ [API] Empty response body');
         return { success: true, data: null as T }
       }
 
-      return JSON.parse(responseText)
+      // Tentar fazer parse do JSON
+      try {
+        const parsed = JSON.parse(responseText);
+        console.log('✅ [API] Parsed response:', parsed);
+        return parsed;
+      } catch (parseError) {
+        console.error('❌ [API] JSON parse error:', parseError);
+        console.error('❌ [API] Response text:', responseText);
+        throw new Error('Failed to parse JSON response');
+      }
     } catch (error) {
-      console.error('API Request failed:', error)
+      console.error('❌ [API] Request failed:', error)
       throw error
     }
   }

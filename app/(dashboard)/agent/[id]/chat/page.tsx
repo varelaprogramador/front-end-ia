@@ -336,7 +336,7 @@ export default function ChatPage({ params }: ChatPageProps) {
       </div>
 
       {/* Botão flutuante de toggle status */}
-      <div className="fixed bottom-6 right-6 z-50 group">
+      <div className="fixed bottom-28 right-6 z-50 group">
         {/* Badge de status */}
         <div className={`absolute -top-2 -left-2 px-2 py-1 rounded-full text-xs font-medium shadow-lg transition-all duration-300 transform group-hover:scale-110 ${agent?.status === "active"
           ? "bg-green-100 text-green-800 border-2 border-green-200 shadow-green-500/20"

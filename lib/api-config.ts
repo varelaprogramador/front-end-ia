@@ -20,9 +20,16 @@ export interface ConfigIA {
   status?: string;
   webhookUrlProd?: string;
   webhookUrlDev?: string;
+  // Campos de integração com Kommo
+  kommoSubdomain?: string;
+  kommoAccessToken?: string;
+  kommodPipelineId?: string;
   createdAt: string;
   updatedAt: string;
   evolutionInstances?: EvolutionInstanceSummary[];
+  // Métricas
+  totalMessages?: number;
+  confirmedAppointments?: number;
   user?: {
     id: string;
     firstName?: string;
@@ -63,6 +70,9 @@ export interface CreateConfigIARequest {
   status?: string;
   webhookUrlProd?: string;
   webhookUrlDev?: string;
+  kommoSubdomain?: string;
+  kommoAccessToken?: string;
+  kommodPipelineId?: string;
 }
 
 export interface UpdateConfigIARequest {
@@ -71,6 +81,9 @@ export interface UpdateConfigIARequest {
   status?: string;
   webhookUrlProd?: string;
   webhookUrlDev?: string;
+  kommoSubdomain?: string;
+  kommoAccessToken?: string;
+  kommodPipelineId?: string;
 }
 
 export interface QueryParams {

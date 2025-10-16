@@ -6,8 +6,8 @@ import { Input } from "@/components/ui/input"
 import { AgentCard } from "@/components/agent-card"
 import { AgentForm } from "@/components/agent-form"
 import { getAgents, deleteAgent, type Agent } from "@/lib/agents-real"
-import { Plus, Search, Loader2, RefreshCw } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { Plus, Search, Loader2, RefreshCw, Play, Pause } from "lucide-react"
+import { toast } from "sonner"
 
 export default function WorkspacePage() {
   const [agents, setAgents] = useState<Agent[]>([])
@@ -17,7 +17,8 @@ export default function WorkspacePage() {
   const [editingAgent, setEditingAgent] = useState<Agent | undefined>()
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
-  const { toast } = useToast()
+  const [pollingEnabled, setPollingEnabled] = useState(false)
+  const [pollingInterval] = useState(30000) // 30 segundos
 
   // Função para carregar agentes
   const loadAgents = async (showRefreshLoader = false) => {
@@ -33,10 +34,8 @@ export default function WorkspacePage() {
       setFilteredAgents(agentsList)
     } catch (error) {
       console.error('Error loading agents:', error)
-      toast({
-        title: "Erro ao carregar agentes",
+      toast.error("Erro ao carregar agentes", {
         description: "Não foi possível carregar a lista de agentes. Tente novamente.",
-        variant: "destructive",
       })
     } finally {
       setLoading(false)
@@ -48,6 +47,21 @@ export default function WorkspacePage() {
   useEffect(() => {
     loadAgents()
   }, [])
+
+  // Polling automático
+  useEffect(() => {
+    if (!pollingEnabled) {
+      return
+    }
+
+    const intervalId = setInterval(() => {
+      loadAgents(true)
+    }, pollingInterval)
+
+    return () => {
+      clearInterval(intervalId)
+    }
+  }, [pollingEnabled, pollingInterval])
 
   // Filtrar agentes baseado na busca
   useEffect(() => {
@@ -79,28 +93,29 @@ export default function WorkspacePage() {
   // Função para deletar agente
   const handleDeleteAgent = async (agentId: string) => {
     if (confirm("Tem certeza que deseja excluir este agente?")) {
+      const loadingToast = toast.loading("Excluindo agente...")
+
       try {
         const success = await deleteAgent(agentId)
-        
+
         if (success) {
-          toast({
-            title: "Agente excluído",
+          // Atualizar lista imediatamente
+          await loadAgents()
+          toast.success("Agente excluído", {
+            id: loadingToast,
             description: "O agente foi excluído com sucesso.",
           })
-          await loadAgents()
         } else {
-          toast({
-            title: "Erro ao excluir agente",
+          toast.error("Erro ao excluir agente", {
+            id: loadingToast,
             description: "Não foi possível excluir o agente. Tente novamente.",
-            variant: "destructive",
           })
         }
       } catch (error) {
         console.error('Error deleting agent:', error)
-        toast({
-          title: "Erro ao excluir agente",
+        toast.error("Erro ao excluir agente", {
+          id: loadingToast,
           description: "Ocorreu um erro inesperado. Tente novamente.",
-          variant: "destructive",
         })
       }
     }
@@ -109,19 +124,30 @@ export default function WorkspacePage() {
   // Função para lidar com sucesso do formulário
   const handleFormSuccess = async () => {
     setShowForm(false)
-    await loadAgents(true)
-    
-    toast({
-      title: editingAgent ? "Agente atualizado" : "Agente criado",
-      description: editingAgent 
-        ? "O agente foi atualizado com sucesso."
-        : "O agente foi criado com sucesso.",
-    })
+    setEditingAgent(undefined)
+    // Atualizar lista imediatamente sem mostrar loader
+    await loadAgents()
   }
 
   // Função para atualizar a lista
   const handleRefresh = () => {
     loadAgents(true)
+  }
+
+  // Função para alternar polling
+  const handleTogglePolling = () => {
+    const newState = !pollingEnabled
+    setPollingEnabled(newState)
+
+    if (newState) {
+      toast.success("Atualização automática ativada", {
+        description: "A lista será atualizada automaticamente a cada 30 segundos.",
+      })
+    } else {
+      toast.info("Atualização automática desativada", {
+        description: "A atualização automática foi desativada.",
+      })
+    }
   }
 
   // Estado de carregamento inicial
@@ -150,10 +176,24 @@ export default function WorkspacePage() {
           </div>
           <div className="flex items-center gap-2">
             <Button
+              variant={pollingEnabled ? "default" : "outline"}
+              size="icon"
+              onClick={handleTogglePolling}
+              title={pollingEnabled ? "Desativar atualização automática (a cada 30s)" : "Ativar atualização automática (a cada 30s)"}
+              className={pollingEnabled ? "bg-green-600 hover:bg-green-700" : ""}
+            >
+              {pollingEnabled ? (
+                <Pause className="h-4 w-4" />
+              ) : (
+                <Play className="h-4 w-4" />
+              )}
+            </Button>
+            <Button
               variant="outline"
               size="icon"
               onClick={handleRefresh}
               disabled={refreshing}
+              title="Atualizar agora"
             >
               <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
             </Button>
@@ -215,6 +255,15 @@ export default function WorkspacePage() {
             <div className="flex items-center gap-2">
               <Loader2 className="h-4 w-4 animate-spin" />
               <span className="text-sm">Atualizando...</span>
+            </div>
+          </div>
+        )}
+
+        {pollingEnabled && !refreshing && (
+          <div className="fixed bottom-4 right-4 bg-background border rounded-lg px-4 py-2 shadow-lg">
+            <div className="flex items-center gap-2">
+              <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse" />
+              <span className="text-sm text-muted-foreground">Atualização automática ativa</span>
             </div>
           </div>
         )}

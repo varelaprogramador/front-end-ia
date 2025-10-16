@@ -31,6 +31,8 @@ export default function InstancesPage() {
     count: number
   } | null>(null)
   const [showQrDialog, setShowQrDialog] = useState(false)
+  const [autoRenewingQr, setAutoRenewingQr] = useState(false)
+  const [qrCountdown, setQrCountdown] = useState(30)
   const { toast } = useToast()
   const userId = useUserId()
 
@@ -100,8 +102,70 @@ export default function InstancesPage() {
     }
   }, [searchTerm, instances])
 
+  // Polling automático do QR Code a cada 30 segundos
+  useEffect(() => {
+    if (!showQrDialog || !qrCodeData) {
+      return
+    }
+
+    console.log('🔄 [QR POLLING] Iniciando polling automático do QR Code')
+
+    // Resetar countdown
+    setQrCountdown(30)
+
+    // Countdown de 1 segundo
+    const countdownIntervalId = setInterval(() => {
+      setQrCountdown(prev => {
+        if (prev <= 1) {
+          return 30 // Resetar quando chegar a 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    // Polling principal de 30 segundos
+    const pollingIntervalId = setInterval(async () => {
+      const instance = instances.find(i => i.instanceName === qrCodeData.instanceName)
+
+      if (!instance) {
+        console.warn('⚠️ [QR POLLING] Instância não encontrada, cancelando polling')
+        return
+      }
+
+      // Verificar se ainda está desconectada (não renovar se já conectou)
+      if (instance.connectionState === 'CONNECTED') {
+        console.log('✅ [QR POLLING] Instância conectada, parando polling')
+        setShowQrDialog(false)
+        clearInterval(pollingIntervalId)
+        clearInterval(countdownIntervalId)
+        return
+      }
+
+      console.log('🔄 [QR POLLING] Renovando QR Code automaticamente...')
+      setAutoRenewingQr(true)
+      setQrCountdown(30) // Resetar countdown
+
+      try {
+        await handleConnect(instance, true) // true = isAutoRenewal
+        // Não mostrar toast de sucesso para não ser muito intrusivo
+        console.log('✅ [QR POLLING] QR Code renovado com sucesso')
+      } catch (error) {
+        console.error('❌ [QR POLLING] Erro ao renovar QR Code:', error)
+        // Erros já são tratados silenciosamente quando isAutoRenewal=true
+      } finally {
+        setAutoRenewingQr(false)
+      }
+    }, 30000) // 30 segundos
+
+    return () => {
+      console.log('🛑 [QR POLLING] Limpando intervalos de polling')
+      clearInterval(pollingIntervalId)
+      clearInterval(countdownIntervalId)
+    }
+  }, [showQrDialog, qrCodeData, instances])
+
   // Função para conectar instância diretamente com Evolution API
-  const handleConnect = async (instance: any) => {
+  const handleConnect = async (instance: any, isAutoRenewal = false) => {
     try {
       // 1. Mostrar loading state
       setConnectingInstances(prev => new Set([...prev, instance.id]))
@@ -198,12 +262,15 @@ export default function InstancesPage() {
         errorMessage = error.message
       }
 
-      toast({
-        title: "Erro ao conectar ❌",
-        description: errorMessage,
-        variant: "destructive",
-        duration: 7000,
-      })
+      // Só mostrar toast de erro se não for renovação automática
+      if (!isAutoRenewal) {
+        toast({
+          title: "Erro ao conectar ❌",
+          description: errorMessage,
+          variant: "destructive",
+          duration: 7000,
+        })
+      }
     } finally {
       setConnectingInstances(prev => {
         const newSet = new Set([...prev])
@@ -708,26 +775,52 @@ export default function InstancesPage() {
               <p className="text-sm text-muted-foreground">
                 Tentativa #{qrCodeData?.count || 1}
               </p>
-              <p className="text-xs text-muted-foreground">
-                1. Abra o WhatsApp no seu telefone
-              </p>
-              <p className="text-xs text-muted-foreground">
-                2. Vá em Menu ou Configurações e selecione "Aparelhos conectados"
-              </p>
-              <p className="text-xs text-muted-foreground">
-                3. Toque em "Conectar um aparelho" e aponte a câmera para este código
-              </p>
+
+              {autoRenewingQr ? (
+                <div className="flex items-center justify-center gap-2 text-xs text-blue-600 bg-blue-50 py-2 px-3 rounded-md">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <span>Renovando QR Code automaticamente...</span>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                  <RefreshCw className="h-3 w-3" />
+                  <span>
+                    Renovação automática em <span className="font-semibold text-blue-600">{qrCountdown}s</span>
+                  </span>
+                </div>
+              )}
+
+              <div className="border-t pt-2 mt-2">
+                <p className="text-xs text-muted-foreground font-medium mb-1">
+                  Como conectar:
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  1. Abra o WhatsApp no seu telefone
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  2. Vá em Menu ou Configurações e selecione "Aparelhos conectados"
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  3. Toque em "Conectar um aparelho" e aponte a câmera para este código
+                </p>
+              </div>
             </div>
 
             <div className="flex gap-2 w-full">
               <Button
                 variant="outline"
-                onClick={() => handleConnect(instances.find(i => i.instanceName === qrCodeData?.instanceName))}
+                onClick={() => {
+                  const instance = instances.find(i => i.instanceName === qrCodeData?.instanceName)
+                  if (instance) {
+                    setQrCountdown(30) // Resetar countdown ao renovar manualmente
+                    handleConnect(instance)
+                  }
+                }}
                 className="flex-1"
-                disabled={connectingInstances.has(instances.find(i => i.instanceName === qrCodeData?.instanceName)?.id || '')}
+                disabled={autoRenewingQr || connectingInstances.has(instances.find(i => i.instanceName === qrCodeData?.instanceName)?.id || '')}
               >
                 <RefreshCw className="h-4 w-4 mr-2" />
-                Renovar QR Code
+                Renovar Agora
               </Button>
               <Button
                 onClick={() => setShowQrDialog(false)}

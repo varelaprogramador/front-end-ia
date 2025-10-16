@@ -5,6 +5,7 @@ import { Suspense } from "react"
 import { MainLayout } from "@/components/main-layout"
 import { ThemeProvider } from "@/components/theme-provider"
 import { DynamicLayout } from "@/components/dynamic-layout"
+import { Toaster } from "sonner"
 import "./globals.css"
 
 import { ClerkProvider } from "@clerk/nextjs"
@@ -33,6 +34,7 @@ export default function RootLayout({
             <Suspense fallback={null}>
               {children}
             </Suspense>
+            <Toaster position="top-right" richColors expand={true} />
           </ThemeProvider>
         </body>
       </html>
