@@ -1142,15 +1142,17 @@ export function ContactChatInterface({ contactId, agentId }: ContactChatInterfac
               messages.map((message, index) => {
                 const isOwn = message.direction === "sent"
                 const isAI = message.isAiResponse
-                const showAvatar = !isOwn && (index === 0 || messages[index - 1]?.senderId !== message.senderId)
-                const showName = !isOwn && contactInfo?.isGroup && showAvatar
+                // Mensagens da IA devem ser alinhadas à direita como se fossem enviadas por você
+                const alignRight = isOwn || isAI
+                const showAvatar = !alignRight && (index === 0 || messages[index - 1]?.senderId !== message.senderId)
+                const showName = !alignRight && contactInfo?.isGroup && showAvatar
 
                 return (
                   <div
                     key={message.id}
-                    className={`flex ${isOwn ? "justify-end" : "justify-start"} mb-1`}
+                    className={`flex ${alignRight ? "justify-end" : "justify-start"} mb-1`}
                   >
-                    {!isOwn && showAvatar && (
+                    {!alignRight && showAvatar && (
                       <div className="mr-2 mt-1 flex-shrink-0">
                         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-xs font-semibold">
                           {contactInfo?.isGroup ? (
@@ -1165,7 +1167,7 @@ export function ContactChatInterface({ contactId, agentId }: ContactChatInterfac
                     )}
 
                     <div
-                      className={`max-w-[75%] relative ${isOwn ? "ml-12" : "mr-12"
+                      className={`max-w-[75%] relative ${alignRight ? "ml-12" : "mr-12"
                         }`}
                     >
                       {showName && (
@@ -1175,23 +1177,19 @@ export function ContactChatInterface({ contactId, agentId }: ContactChatInterfac
                       )}
 
                       <div
-                        className={`rounded-lg px-3 py-2 shadow-sm relative ${isOwn
+                        className={`rounded-lg px-3 py-2 shadow-sm relative ${alignRight
                           ? "bg-green-500 text-white rounded-br-none"
-                          : isAI
-                            ? "bg-blue-50 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100 border border-blue-200 dark:border-blue-700 rounded-bl-none"
-                            : "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-bl-none"
+                          : "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-bl-none"
                           }`}
                       >
                         {/* Tail da mensagem */}
                         <div
-                          className={`absolute bottom-0 w-3 h-3 ${isOwn
+                          className={`absolute bottom-0 w-3 h-3 ${alignRight
                             ? "-right-1 bg-green-500"
-                            : isAI
-                              ? "-left-1 bg-blue-50 dark:bg-blue-900/30 border-l border-b border-blue-200 dark:border-blue-700"
-                              : "-left-1 bg-white dark:bg-gray-700"
+                            : "-left-1 bg-white dark:bg-gray-700"
                             }`}
                           style={{
-                            clipPath: isOwn
+                            clipPath: alignRight
                               ? "polygon(0 0, 100% 0, 0 100%)"
                               : "polygon(100% 0, 100% 100%, 0 100%)"
                           }}
@@ -1199,16 +1197,16 @@ export function ContactChatInterface({ contactId, agentId }: ContactChatInterfac
 
                         {isAI && (
                           <div className="flex items-center justify-between mb-1">
-                            <div className="flex items-center">
-                              <Bot className="h-3 w-3 mr-1 text-blue-500" />
-                              <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
+                            <div className="flex items-center bg-white/20 px-2 py-1 rounded">
+                              <Bot className="h-3 w-3 mr-1 text-white" />
+                              <span className="text-xs font-medium text-white">
                                 Assistente IA
                               </span>
                             </div>
                             {message.instanceName && (
                               <div className="flex items-center space-x-1">
-                                <Smartphone className="h-3 w-3 text-blue-400" />
-                                <span className="text-xs text-blue-500 dark:text-blue-400 font-mono">
+                                <Smartphone className="h-3 w-3 text-white/80" />
+                                <span className="text-xs text-white/80 font-mono">
                                   {message.instanceName}
                                 </span>
                               </div>
@@ -1255,10 +1253,10 @@ export function ContactChatInterface({ contactId, agentId }: ContactChatInterfac
                         </div>
 
                         {/* Message footer */}
-                        <div className={`flex items-center justify-end mt-1 space-x-1 text-xs ${isOwn ? "text-white/70" : "text-gray-500 dark:text-gray-400"
+                        <div className={`flex items-center justify-end mt-1 space-x-1 text-xs ${alignRight ? "text-white/70" : "text-gray-500 dark:text-gray-400"
                           }`}>
                           <span>{formatMessageTime(message.timestamp || message.createdAt)}</span>
-                          {isOwn && (
+                          {alignRight && (
                             <div className="flex items-center space-x-1">
                               {getMessageStatusIcon(message)}
                             </div>
@@ -1267,7 +1265,7 @@ export function ContactChatInterface({ contactId, agentId }: ContactChatInterfac
                       </div>
                     </div>
 
-                    {!isOwn && !showAvatar && <div className="w-10 flex-shrink-0"></div>}
+                    {!alignRight && !showAvatar && <div className="w-10 flex-shrink-0"></div>}
                   </div>
                 )
               })
