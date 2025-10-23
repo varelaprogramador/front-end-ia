@@ -688,31 +688,29 @@ export function ContactChatInterface({ contactId, agentId }: ContactChatInterfac
     const [transcription, setTranscription] = useState<string | null>(null)
     const [isTranscribing, setIsTranscribing] = useState(false)
     const [audioError, setAudioError] = useState<string | null>(null)
+    const [isLoadingAudio, setIsLoadingAudio] = useState(false)
     const audioRef = useRef<HTMLAudioElement>(null)
 
-    useEffect(() => {
-      const loadAudio = async () => {
-        const base64 = await getMediaBase64(message)
-        if (base64) {
-          console.log('🎵 [AUDIO] Carregando áudio:', {
-            messageId: message.messageId,
-            hasDataPrefix: base64.startsWith('data:'),
-            base64Length: base64.length,
-            base64Preview: base64.substring(0, 100),
-            mediaType: message.mediaType,
-            messageType: message.messageType,
-          })
+    const handleLoadAudio = async () => {
+      if (audioSrc || isLoadingAudio) return // Já carregado ou carregando
 
-          // getMediaBase64 já retorna o base64 com o prefixo correto
-          setAudioSrc(base64)
-          setAudioError(null)
-        } else {
-          console.error('❌ [AUDIO] Não foi possível carregar o base64 do áudio')
-          setAudioError('Não foi possível carregar o áudio')
-        }
+      setIsLoadingAudio(true)
+      const base64 = await getMediaBase64(message)
+
+      if (base64) {
+        console.log('🎵 [AUDIO] Áudio carregado:', {
+          messageId: message.messageId,
+          base64Length: base64.length,
+        })
+        setAudioSrc(base64)
+        setAudioError(null)
+      } else {
+        console.error('❌ [AUDIO] Não foi possível carregar o áudio')
+        setAudioError('Não foi possível carregar o áudio')
       }
-      loadAudio()
-    }, [message.messageId])
+
+      setIsLoadingAudio(false)
+    }
 
     const togglePlayPause = async () => {
       if (!audioRef.current) {
@@ -859,21 +857,29 @@ export function ContactChatInterface({ contactId, agentId }: ContactChatInterfac
       }
     }
 
-    if (!audioSrc && loadingMedia[message.messageId]) {
-      return (
-        <div className="flex items-center space-x-2 p-2 rounded bg-black/10">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <span className="text-xs">Carregando áudio...</span>
-        </div>
-      )
-    }
-
+    // Se ainda não carregou o áudio, mostrar botão para carregar
     if (!audioSrc) {
       return (
-        <div className="flex items-center space-x-2 p-2 rounded bg-black/10">
-          <Mic className="h-4 w-4" />
-          <span className="text-xs">Áudio indisponível</span>
-        </div>
+        <Button
+          onClick={handleLoadAudio}
+          disabled={isLoadingAudio}
+          variant="outline"
+          size="sm"
+          className="gap-2 bg-blue-500 dark:bg-gray-800 hover:bg-blue-600 dark:hover:bg-gray-700 text-white dark:text-gray-100 border-blue-600 dark:border-gray-600"
+        >
+          {isLoadingAudio ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Carregando áudio...</span>
+            </>
+          ) : (
+            <>
+              <Play className="h-4 w-4" />
+              <Mic className="h-4 w-4" />
+              <span>Carregar áudio</span>
+            </>
+          )}
+        </Button>
       )
     }
 
@@ -929,33 +935,44 @@ export function ContactChatInterface({ contactId, agentId }: ContactChatInterfac
   const ImageViewer = ({ message }: { message: Message }) => {
     const [imageSrc, setImageSrc] = useState<string | null>(null)
     const [isFullscreen, setIsFullscreen] = useState(false)
+    const [isLoadingImage, setIsLoadingImage] = useState(false)
 
-    useEffect(() => {
-      const loadImage = async () => {
-        const base64 = await getMediaBase64(message)
-        if (base64) {
-          // Ensure proper data URI format
-          const imageDataUri = base64.startsWith('data:') ? base64 : `data:${message.mediaType || 'image/jpeg'};base64,${base64}`
-          setImageSrc(imageDataUri)
-        }
+    const handleLoadImage = async () => {
+      if (imageSrc || isLoadingImage) return
+
+      setIsLoadingImage(true)
+      const base64 = await getMediaBase64(message)
+
+      if (base64) {
+        // Ensure proper data URI format
+        const imageDataUri = base64.startsWith('data:') ? base64 : `data:${message.mediaType || 'image/jpeg'};base64,${base64}`
+        setImageSrc(imageDataUri)
       }
-      loadImage()
-    }, [message.messageId])
-
-    if (!imageSrc && loadingMedia[message.messageId]) {
-      return (
-        <div className="flex items-center justify-center p-4 rounded bg-black/10 min-h-[120px]">
-          <Loader2 className="h-6 w-6 animate-spin" />
-        </div>
-      )
+      setIsLoadingImage(false)
     }
 
+    // Show button to load image on demand
     if (!imageSrc) {
       return (
-        <div className="flex items-center space-x-2 p-2 rounded bg-black/10">
-          <ImageIcon className="h-4 w-4" />
-          <span className="text-xs">Imagem indisponível</span>
-        </div>
+        <Button
+          onClick={handleLoadImage}
+          disabled={isLoadingImage}
+          variant="outline"
+          size="sm"
+          className="mt-2 gap-2 bg-blue-500 dark:bg-gray-800 hover:bg-blue-600 dark:hover:bg-gray-700 text-white dark:text-gray-100 border-blue-600 dark:border-gray-600"
+        >
+          {isLoadingImage ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Carregando imagem...</span>
+            </>
+          ) : (
+            <>
+              <ImageIcon className="h-4 w-4" />
+              <span>Carregar imagem</span>
+            </>
+          )}
+        </Button>
       )
     }
 
