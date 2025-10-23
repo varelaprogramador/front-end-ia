@@ -248,7 +248,7 @@ export function ConfigIAInstancesDialog({
               {assignedInstances.length > 0 ? (
                 <div className="space-y-2">
                   {assignedInstances.map((instance) => (
-                    <div key={instance.id} className="flex items-center space-x-3 p-2 border rounded hover:bg-gray-50">
+                    <div key={instance.id} className="flex items-center space-x-3 p-2 border rounded hover:bg-muted/50 transition-colors">
                       <Checkbox
                         id={`remove-${instance.id}`}
                         checked={selectedForRemoval.includes(instance.id)}
