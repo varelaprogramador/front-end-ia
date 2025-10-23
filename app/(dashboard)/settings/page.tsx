@@ -78,8 +78,13 @@ export default function SettingsPage() {
             filename: imageData.file.name
           })
 
-          if (uploadResponse.success && uploadResponse.data) {
-            updatedConfig[type as keyof SystemConfig] = uploadResponse.data[type] as any
+          if (
+            uploadResponse.success &&
+            uploadResponse.data &&
+            (type === "logoUrl" || type === "logoUrlDark" || type === "faviconUrl")
+          ) {
+            // The keys of uploadResponse.data are typed as expected here
+            updatedConfig[type] = uploadResponse.data[type];
           }
         }
       }

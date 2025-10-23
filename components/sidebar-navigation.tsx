@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useUser } from "@clerk/nextjs"
+import { useUser, UserButton } from "@clerk/nextjs"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
@@ -25,6 +25,7 @@ import {
   Plus,
   Smartphone,
   User,
+  FileText,
 } from "lucide-react"
 
 export function SidebarNavigation() {
@@ -139,6 +140,12 @@ export function SidebarNavigation() {
       href: "/instances",
       icon: Smartphone,
       description: "Gerenciar instâncias Evolution",
+    },
+    {
+      title: "Documentação",
+      href: "/documentacao",
+      icon: FileText,
+      description: "Guia completo do sistema",
     },
     {
       title: "Configurações",
@@ -334,34 +341,26 @@ export function SidebarNavigation() {
           isCollapsedView ? 'p-2' : 'p-3'
         )}>
           {isCollapsedView ? (
-            // Layout colapsado - apenas avatar
+            // Layout colapsado - apenas UserButton
             <div className="flex justify-center">
-              <div className="w-8 h-8 rounded-full bg-sidebar-primary flex items-center justify-center text-sidebar-primary-foreground overflow-hidden">
-                {user.imageUrl ? (
-                  <img
-                    src={user.imageUrl}
-                    alt={user.fullName || 'User'}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <User className="h-4 w-4" />
-                )}
-              </div>
+              <UserButton
+                appearance={{
+                  elements: {
+                    avatarBox: "w-8 h-8"
+                  }
+                }}
+              />
             </div>
           ) : (
-            // Layout expandido - avatar + info
+            // Layout expandido - UserButton + info
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-sidebar-primary flex items-center justify-center text-sidebar-primary-foreground overflow-hidden flex-shrink-0">
-                {user.imageUrl ? (
-                  <img
-                    src={user.imageUrl}
-                    alt={user.fullName || 'User'}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <User className="h-5 w-5" />
-                )}
-              </div>
+              <UserButton
+                appearance={{
+                  elements: {
+                    avatarBox: "w-9 h-9"
+                  }
+                }}
+              />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-sidebar-foreground truncate">
                   {user.fullName || user.firstName || 'Usuário'}

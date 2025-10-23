@@ -12,12 +12,13 @@ import {
   Users,
   Workflow,
   Briefcase,
-  Lock
+  Lock,
+  Video
 } from "lucide-react"
 
 export default function DocumentacaoPage() {
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="container mx-auto py-6 px-8 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Documentação do Sistema</h1>
@@ -29,7 +30,7 @@ export default function DocumentacaoPage() {
       </div>
 
       <Tabs defaultValue="workspace" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8">
+        <TabsList className="grid w-full grid-cols-3 lg:grid-cols-9">
           <TabsTrigger value="workspace">
             <Briefcase className="h-4 w-4 mr-2" />
             Workspace
@@ -61,6 +62,10 @@ export default function DocumentacaoPage() {
           <TabsTrigger value="chat">
             <MessageSquare className="h-4 w-4 mr-2" />
             Chat
+          </TabsTrigger>
+          <TabsTrigger value="videos">
+            <Video className="h-4 w-4 mr-2" />
+            Vídeos
           </TabsTrigger>
         </TabsList>
 
@@ -396,7 +401,7 @@ export default function DocumentacaoPage() {
                     O campo publicMetadata é um JSON que pode conter permissões e dados adicionais:
                   </p>
                   <pre className="text-xs bg-white dark:bg-gray-900 p-2 rounded border">
-{`{
+                    {`{
   "is_admin": true,
   "role": "administrator",
   "department": "IT"
@@ -566,6 +571,122 @@ export default function DocumentacaoPage() {
                   <li>Criar tarefas e lembretes</li>
                   <li>Registrar interações com clientes</li>
                 </ul>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Videos */}
+        <TabsContent value="videos" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Video className="h-5 w-5" />
+                Vídeos Tutoriais
+              </CardTitle>
+              <CardDescription>
+                <Badge variant="secondary" className="mb-2">Em Breve</Badge>
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex flex-col items-center justify-center py-12 space-y-4">
+                <div className="rounded-full bg-primary/10 p-6">
+                  <Video className="h-16 w-16 text-primary" />
+                </div>
+                <div className="text-center space-y-2">
+                  <h3 className="text-xl font-semibold">Vídeos Tutoriais em Desenvolvimento</h3>
+                  <p className="text-muted-foreground max-w-md">
+                    Estamos preparando uma série completa de vídeos tutoriais para ajudá-lo a
+                    aproveitar ao máximo todas as funcionalidades do sistema.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <Card className="border-2 border-dashed">
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Bot className="h-4 w-4" />
+                      Criando Seu Primeiro Agente
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">
+                      Aprenda passo a passo como criar e configurar seu primeiro agente de IA,
+                      incluindo integração com Kommo CRM.
+                    </p>
+                    <Badge variant="outline" className="mt-3">Em breve</Badge>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-2 border-dashed">
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Workflow className="h-4 w-4" />
+                      Configurando IA e Instâncias
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">
+                      Veja como criar configurações de IA e atribuir instâncias do Evolution
+                      para automação completa.
+                    </p>
+                    <Badge variant="outline" className="mt-3">Em breve</Badge>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-2 border-dashed">
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <MessageSquare className="h-4 w-4" />
+                      Gerenciando Conversas
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">
+                      Tutorial completo sobre como gerenciar e monitorar conversas dos seus
+                      agentes com clientes.
+                    </p>
+                    <Badge variant="outline" className="mt-3">Em breve</Badge>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-2 border-dashed">
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Settings className="h-4 w-4" />
+                      Administração do Sistema
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">
+                      Guia para administradores sobre gerenciamento de usuários, permissões
+                      e configurações avançadas.
+                    </p>
+                    <Badge variant="outline" className="mt-3">Em breve</Badge>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-950/30 dark:to-blue-950/30 border border-purple-200 dark:border-purple-800 p-6 rounded-lg">
+                <div className="flex items-start gap-4">
+                  <div className="rounded-full bg-purple-100 dark:bg-purple-900 p-3">
+                    <FileText className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <h4 className="font-semibold text-purple-900 dark:text-purple-100">
+                      Enquanto isso, use a documentação escrita
+                    </h4>
+                    <p className="text-sm text-purple-800 dark:text-purple-200">
+                      Todas as funcionalidades estão completamente documentadas nas abas acima.
+                      Navegue pelas diferentes seções para aprender sobre cada recurso do sistema.
+                    </p>
+                    <p className="text-sm text-purple-800 dark:text-purple-200 mt-3">
+                      <strong>💡 Dica:</strong> Use as abas no topo desta página para encontrar
+                      informações detalhadas sobre Workspace, Agentes, Config IA, Instâncias e muito mais!
+                    </p>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>

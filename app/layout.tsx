@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { DynamicLayout } from "@/components/dynamic-layout"
 import { DynamicFavicon } from "@/components/dynamic-favicon"
 import { Toaster } from "sonner"
+import NextTopLoader from "nextjs-toploader"
 import "./globals.css"
 
 import { ClerkProvider } from "@clerk/nextjs"
@@ -32,6 +33,13 @@ export default function RootLayout({
       <html lang="pt-BR" suppressHydrationWarning>
         <DynamicFavicon />
         <body className={`${inter.variable} font-sans antialiased`}>
+          <NextTopLoader
+            color="blue"
+            height={3}
+            showSpinner={false}
+            easing="ease"
+            speed={200}
+          />
           <ThemeProvider defaultTheme="system" storageKey="ai-agent-theme">
             <Suspense fallback={null}>
               {children}
