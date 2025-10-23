@@ -5,6 +5,7 @@ import { Suspense } from "react"
 import { MainLayout } from "@/components/main-layout"
 import { ThemeProvider } from "@/components/theme-provider"
 import { DynamicLayout } from "@/components/dynamic-layout"
+import { DynamicFavicon } from "@/components/dynamic-favicon"
 import { Toaster } from "sonner"
 import "./globals.css"
 
@@ -29,6 +30,7 @@ export default function RootLayout({
   return (
     <ClerkProvider>
       <html lang="pt-BR" suppressHydrationWarning>
+        <DynamicFavicon />
         <body className={`${inter.variable} font-sans antialiased`}>
           <ThemeProvider defaultTheme="system" storageKey="ai-agent-theme">
             <Suspense fallback={null}>

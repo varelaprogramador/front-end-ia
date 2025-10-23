@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
+import { useUser } from "@clerk/nextjs"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -8,12 +10,14 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
-import { Upload, X } from "lucide-react"
+import { Upload, X, Users, ShieldAlert } from "lucide-react"
 import { Save, RefreshCw, Building2 } from "lucide-react"
 import { systemConfigService, type SystemConfig, type SystemConfigUpdate } from "@/lib/system-config-api"
 import { toast } from "sonner"
 
 export default function SettingsPage() {
+  const { user, isLoaded } = useUser()
+  const router = useRouter()
   const [isLoadingSystem, setIsLoadingSystem] = useState(false)
   const [systemConfig, setSystemConfig] = useState<SystemConfig | null>(null)
   const [pendingImages, setPendingImages] = useState<{ [key: string]: { file: File, preview: string } | null }>({
@@ -21,6 +25,17 @@ export default function SettingsPage() {
     logoUrlDark: null,
     faviconUrl: null
   })
+
+  // Verificar permissão de admin
+  useEffect(() => {
+    if (isLoaded && user) {
+      const isAdmin = user.publicMetadata?.is_admin === true
+      if (!isAdmin) {
+        toast.error("Você não tem permissão para acessar esta página")
+        router.push("/")
+      }
+    }
+  }, [isLoaded, user, router])
 
   useEffect(() => {
     loadSystemConfig()
@@ -265,6 +280,42 @@ export default function SettingsPage() {
     )
   }, [pendingImages, updateSystemConfig, handleImageSelect])
 
+  // Verificar se ainda está carregando
+  if (!isLoaded) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <RefreshCw className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
+          <p className="text-muted-foreground mt-4">Carregando...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Verificar se o usuário é admin
+  const isAdmin = user?.publicMetadata?.is_admin === true
+  if (!isAdmin) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Card className="max-w-md">
+          <CardHeader className="text-center">
+            <div className="mx-auto w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
+              <ShieldAlert className="h-6 w-6 text-destructive" />
+            </div>
+            <CardTitle>Acesso Negado</CardTitle>
+            <CardDescription>
+              Você não tem permissão para acessar esta página. Apenas administradores podem acessar as configurações do sistema.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-center">
+            <Button onClick={() => router.push("/")} variant="outline" className="w-full">
+              Voltar para o início
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
@@ -274,6 +325,14 @@ export default function SettingsPage() {
           <h1 className="text-3xl font-bold text-foreground">Configurações</h1>
           <p className="text-muted-foreground mt-1">Gerencie as configurações do sistema e preferências da empresa</p>
         </div>
+        <Button
+          onClick={() => window.location.href = '/settings/users'}
+          variant="outline"
+          className="gap-2"
+        >
+          <Users className="h-4 w-4" />
+          Gerenciar Usuários
+        </Button>
       </div>
 
       <div className="grid gap-6">
