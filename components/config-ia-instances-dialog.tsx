@@ -306,7 +306,7 @@ export function ConfigIAInstancesDialog({
               ) : availableInstances.length > 0 ? (
                 <div className="space-y-2">
                   {availableInstances.map((instance) => (
-                    <div key={instance.id} className="flex items-center space-x-3 p-2 border rounded hover:bg-gray-50">
+                    <div key={instance.id} className="flex items-center space-x-3 p-2 border rounded hover:bg-muted/50 transition-colors">
                       <Checkbox
                         id={`add-${instance.id}`}
                         checked={selectedInstances.includes(instance.id)}
