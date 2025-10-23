@@ -16,7 +16,7 @@ import { toast } from "sonner"
 export default function SettingsPage() {
   const [isLoadingSystem, setIsLoadingSystem] = useState(false)
   const [systemConfig, setSystemConfig] = useState<SystemConfig | null>(null)
-  const [pendingImages, setPendingImages] = useState<{[key: string]: { file: File, preview: string } | null}>({
+  const [pendingImages, setPendingImages] = useState<{ [key: string]: { file: File, preview: string } | null }>({
     logoUrl: null,
     logoUrlDark: null,
     faviconUrl: null
@@ -41,12 +41,12 @@ export default function SettingsPage() {
 
   const handleSystemConfigSave = async () => {
     if (!systemConfig) return
-    
+
     setIsLoadingSystem(true)
     try {
       // Primeiro fazer upload das imagens pendentes
       const updatedConfig = { ...systemConfig }
-      
+
       for (const [type, imageData] of Object.entries(pendingImages)) {
         if (imageData) {
           const reader = new FileReader()
@@ -54,21 +54,21 @@ export default function SettingsPage() {
             reader.onloadend = () => resolve(reader.result as string)
             reader.readAsDataURL(imageData.file)
           })
-          
+
           const base64 = await base64Promise
-          
+
           const uploadResponse = await systemConfigService.uploadFile({
             type: type as 'logoUrl' | 'logoUrlDark' | 'faviconUrl',
             base64,
             filename: imageData.file.name
           })
-          
+
           if (uploadResponse.success && uploadResponse.data) {
             updatedConfig[type as keyof SystemConfig] = uploadResponse.data[type] as any
           }
         }
       }
-      
+
       // Atualizar configurações do sistema
       const updateData: SystemConfigUpdate = {
         systemName: updatedConfig.systemName,
@@ -97,7 +97,7 @@ export default function SettingsPage() {
       }
 
       const response = await systemConfigService.updateSystemConfig(updateData)
-      
+
       if (response.success) {
         toast.success('Configurações do sistema salvas com sucesso!')
         // Limpar imagens pendentes
@@ -127,7 +127,7 @@ export default function SettingsPage() {
       toast.error('Por favor, selecione apenas arquivos de imagem')
       return
     }
-    
+
     // Criar preview da imagem
     const reader = new FileReader()
     reader.onloadend = () => {
@@ -144,11 +144,11 @@ export default function SettingsPage() {
   }, [])
 
   // Memoizar o componente ImageUploadField para evitar re-renderizações
-  const ImageUploadField = useMemo(() => ({ 
-    type, 
-    label, 
-    currentValue 
-  }: { 
+  const ImageUploadField = useMemo(() => ({
+    type,
+    label,
+    currentValue
+  }: {
     type: 'logoUrl' | 'logoUrlDark' | 'faviconUrl'
     label: string
     currentValue?: string
@@ -156,14 +156,14 @@ export default function SettingsPage() {
     const fileInputRef = useRef<HTMLInputElement>(null)
     const pendingImage = pendingImages[type]
     const displayImage = pendingImage?.preview || currentValue
-    
+
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0]
       if (file) {
         handleImageSelect(type, file)
       }
     }
-    
+
     const removeImage = () => {
       if (pendingImage) {
         // Remover imagem pendente
@@ -174,11 +174,11 @@ export default function SettingsPage() {
         updateSystemConfig(type, '')
       }
     }
-    
+
     const replaceImage = () => {
       fileInputRef.current?.click()
     }
-    
+
     return (
       <div className="space-y-2">
         <Label>{label}</Label>
@@ -186,8 +186,8 @@ export default function SettingsPage() {
           {/* Image Preview */}
           {displayImage && (
             <div className="relative w-20 h-20 border rounded-lg overflow-hidden bg-muted">
-              <img 
-                src={displayImage} 
+              <img
+                src={displayImage}
                 alt={label}
                 className="w-full h-full object-contain"
                 onError={(e) => {
@@ -221,17 +221,17 @@ export default function SettingsPage() {
               )}
             </div>
           )}
-          
+
           {/* Upload Button quando não há imagem */}
           {!displayImage && (
-            <div 
+            <div
               className="w-20 h-20 border-2 border-dashed border-muted-foreground/25 rounded-lg flex items-center justify-center cursor-pointer hover:border-muted-foreground/50 transition-colors"
               onClick={() => fileInputRef.current?.click()}
             >
               <Upload className="h-6 w-6 text-muted-foreground/50" />
             </div>
           )}
-          
+
           {/* URL Input e botão de upload */}
           <div className="flex gap-2">
             <Button
@@ -244,7 +244,7 @@ export default function SettingsPage() {
               <Upload className="h-4 w-4" />
               Selecionar Imagem
             </Button>
-            
+
             <Input
               value={currentValue || ''}
               onChange={(e) => updateSystemConfig(type, e.target.value)}
@@ -252,7 +252,7 @@ export default function SettingsPage() {
               className="flex-1"
             />
           </div>
-          
+
           <input
             ref={fileInputRef}
             type="file"
@@ -285,9 +285,9 @@ export default function SettingsPage() {
                 <Building2 className="h-5 w-5 text-primary" />
                 <CardTitle>Configurações do Sistema</CardTitle>
               </div>
-              <Button 
-                onClick={handleSystemConfigSave} 
-                disabled={isLoadingSystem || !systemConfig} 
+              <Button
+                onClick={handleSystemConfigSave}
+                disabled={isLoadingSystem || !systemConfig}
                 size="sm"
                 className="gap-2"
               >
@@ -440,7 +440,7 @@ export default function SettingsPage() {
 
                 <Separator />
 
-                {/* Contato e Links */}
+                {/* Contato e Links
                 <div className="space-y-4">
                   <h4 className="text-sm font-medium text-muted-foreground">CONTATO & LINKS</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -489,7 +489,7 @@ export default function SettingsPage() {
 
                 <Separator />
 
-                {/* Configurações do Sistema */}
+                
                 <div className="space-y-4">
                   <h4 className="text-sm font-medium text-muted-foreground">CONFIGURAÇÕES DO SISTEMA</h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -523,7 +523,7 @@ export default function SettingsPage() {
                       />
                     </div>
                   </div>
-                </div>
+                </div> */}
               </>
             ) : (
               <div className="flex items-center justify-center py-8">

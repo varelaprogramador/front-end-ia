@@ -5,6 +5,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useToast } from "@/components/ui/use-toast"
 import type { EvolutionInstance } from "@/lib/types/evolution-instance"
@@ -23,21 +24,32 @@ export function EvolutionInstanceForm({ instance, open, onOpenChange, onSuccess 
   const userId = useUserId()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [selectedEvents, setSelectedEvents] = useState<string[]>([])
+  const [useCustomCredentials, setUseCustomCredentials] = useState(false)
+  const [useCustomWebhook, setUseCustomWebhook] = useState(false)
 
   const [formData, setFormData] = useState({
     instanceName: instance?.instanceName || "",
     evolutionUrl: instance?.serverUrl || "",
     apiKey: instance?.apiKey || "",
-    baseUrl: "", // Nova propriedade para capturar apenas a base URL
+    baseUrl: process.env.NEXT_PUBLIC_API_URL || "", // URL padrão do ambiente
   })
 
   // Atualizar o formulário quando a instância mudar
   useEffect(() => {
     if (instance) {
-      // Extrair base URL do webhook URL se existir
+      // Extrair base URL do webhook URL se existir, senão usar a URL do ambiente
       const baseUrl = instance.webhookUrl
         ? instance.webhookUrl.replace(/\/webhooks\/receive-evo$/, "")
-        : "";
+        : process.env.NEXT_PUBLIC_API_URL || "";
+
+      // Detectar se usa credenciais personalizadas (se serverUrl ou apiKey não estão vazios)
+      const hasCustomCredentials = !!(instance.serverUrl || instance.apiKey);
+      setUseCustomCredentials(hasCustomCredentials);
+
+      // Detectar se usa webhook personalizado (diferente da URL padrão)
+      const hasCustomWebhook = instance.webhookUrl &&
+        baseUrl !== process.env.NEXT_PUBLIC_API_URL;
+      setUseCustomWebhook(!!hasCustomWebhook);
 
       setFormData({
         instanceName: instance.instanceName || "",
@@ -47,12 +59,14 @@ export function EvolutionInstanceForm({ instance, open, onOpenChange, onSuccess 
       })
       setSelectedEvents(["MESSAGES_UPSERT"]) // Sempre fixo
     } else {
-      // Limpar formulário para nova instância
+      // Limpar formulário para nova instância com URL padrão do ambiente
+      setUseCustomCredentials(false);
+      setUseCustomWebhook(false);
       setFormData({
         instanceName: "",
         evolutionUrl: "",
         apiKey: "",
-        baseUrl: "",
+        baseUrl: process.env.NEXT_PUBLIC_API_URL || "",
       })
       setSelectedEvents(["MESSAGES_UPSERT"]) // Sempre fixo
     }
@@ -86,8 +100,8 @@ export function EvolutionInstanceForm({ instance, open, onOpenChange, onSuccess 
         // Atualizando instância existente
         const response = await evolutionInstanceService.updateInstance(instance.id, {
           instanceName: formData.instanceName,
-          serverUrl: formData.evolutionUrl,
-          apiKey: formData.apiKey,
+          serverUrl: useCustomCredentials ? formData.evolutionUrl : "", // Vazio se não personalizado
+          apiKey: useCustomCredentials ? formData.apiKey : "", // Vazio se não personalizado
           webhookUrl: webhookUrl,
           webhookByEvents: false, // Sempre false
           webhookBase64: true, // Sempre true - ativado
@@ -98,8 +112,8 @@ export function EvolutionInstanceForm({ instance, open, onOpenChange, onSuccess 
         // Criando nova instância
         const response = await evolutionInstanceService.createInstance({
           instanceName: formData.instanceName,
-          serverUrl: formData.evolutionUrl,
-          apiKey: formData.apiKey,
+          serverUrl: useCustomCredentials ? formData.evolutionUrl : "", // Vazio se não personalizado
+          apiKey: useCustomCredentials ? formData.apiKey : "", // Vazio se não personalizado
           webhookUrl: webhookUrl,
           webhookByEvents: false, // Sempre false
           webhookBase64: true, // Sempre true - ativado
@@ -120,11 +134,13 @@ export function EvolutionInstanceForm({ instance, open, onOpenChange, onSuccess 
 
         // Reset form if creating new instance
         if (!instance) {
+          setUseCustomCredentials(false)
+          setUseCustomWebhook(false)
           setFormData({
             instanceName: "",
             evolutionUrl: "",
             apiKey: "",
-            baseUrl: "",
+            baseUrl: process.env.NEXT_PUBLIC_API_URL || "",
           })
           setSelectedEvents(["MESSAGES_UPSERT"])
         }
@@ -173,57 +189,115 @@ export function EvolutionInstanceForm({ instance, open, onOpenChange, onSuccess 
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="evolutionUrl">URL do Servidor Evolution</Label>
-              <Input
-                id="evolutionUrl"
-                type="url"
-                value={formData.evolutionUrl}
-                onChange={(e) => setFormData({ ...formData, evolutionUrl: e.target.value })}
-                placeholder="https://evolution.exemplo.com"
-                required
+            <div className="flex items-center space-x-2 py-2">
+              <Checkbox
+                id="useCustomCredentials"
+                checked={useCustomCredentials}
+                onCheckedChange={(checked) => setUseCustomCredentials(checked as boolean)}
               />
+              <Label
+                htmlFor="useCustomCredentials"
+                className="text-sm font-normal cursor-pointer"
+              >
+                Usar credenciais Evolution personalizadas
+              </Label>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="apiKey">Chave da API</Label>
-              <Input
-                id="apiKey"
-                type="password"
-                value={formData.apiKey}
-                onChange={(e) => setFormData({ ...formData, apiKey: e.target.value })}
-                placeholder="Sua chave de API do Evolution"
-                required
-              />
-            </div>
+            {useCustomCredentials && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="evolutionUrl">URL do Servidor Evolution</Label>
+                  <Input
+                    id="evolutionUrl"
+                    type="url"
+                    value={formData.evolutionUrl}
+                    onChange={(e) => setFormData({ ...formData, evolutionUrl: e.target.value })}
+                    placeholder="https://evolution.exemplo.com"
+                    required={useCustomCredentials}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="apiKey">Chave da API</Label>
+                  <Input
+                    id="apiKey"
+                    type="password"
+                    value={formData.apiKey}
+                    onChange={(e) => setFormData({ ...formData, apiKey: e.target.value })}
+                    placeholder="Sua chave de API do Evolution"
+                    required={useCustomCredentials}
+                  />
+                </div>
+              </>
+            )}
+
+            {!useCustomCredentials && (
+              <div className="border border-blue-200 dark:border-blue-800 p-3 rounded-md bg-blue-50 dark:bg-blue-950/30">
+                <p className="text-sm text-blue-900 dark:text-blue-100">
+                  <strong>Credenciais padrão do ambiente serão utilizadas</strong>
+                  <br />
+                  As credenciais configuradas no servidor serão usadas automaticamente.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Configurações de Webhook */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Configurações de Webhook</h3>
 
-            <div className="space-y-2">
-              <Label htmlFor="baseUrl">URL Base do Webhook (opcional)</Label>
-              <div className="flex items-center gap-4">
-                <Input
-                  id="baseUrl"
-                  type="url"
-                  value={formData.baseUrl}
-                  className="border-none w-[60%]"
-                  onChange={(e) => setFormData({ ...formData, baseUrl: e.target.value })}
-                  placeholder="https://seu-servidor.com"
-                />
-                <p className="text-sm text-gray-800">/webhooks/receive-evo</p>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                A URL completa do webhook será: <code>{formData.baseUrl ? `${formData.baseUrl.replace(/\/$/, "")}/webhooks/receive-evo` : "{base-url}/webhooks/receive-evo"}</code>
-              </p>
+            <div className="flex items-center space-x-2 py-2">
+              <Checkbox
+                id="useCustomWebhook"
+                checked={useCustomWebhook}
+                onCheckedChange={(checked) => {
+                  setUseCustomWebhook(checked as boolean)
+                  // Se desmarcar, volta para URL padrão
+                  if (!checked) {
+                    setFormData({ ...formData, baseUrl: process.env.NEXT_PUBLIC_API_URL || "" })
+                  }
+                }}
+              />
+              <Label
+                htmlFor="useCustomWebhook"
+                className="text-sm font-normal cursor-pointer"
+              >
+                Customizar URL do webhook
+              </Label>
             </div>
 
+            {useCustomWebhook ? (
+              <div className="space-y-2">
+                <Label htmlFor="baseUrl">URL Base do Webhook</Label>
+                <div className="flex items-center gap-4">
+                  <Input
+                    id="baseUrl"
+                    type="url"
+                    value={formData.baseUrl}
+                    className="border-none w-[60%]"
+                    onChange={(e) => setFormData({ ...formData, baseUrl: e.target.value })}
+                    placeholder={process.env.NEXT_PUBLIC_API_URL || "https://seu-servidor.com"}
+                  />
+                  <p className="text-sm text-gray-800">/webhooks/receive-evo</p>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  URL completa do webhook: <code className="bg-muted px-1 py-0.5 rounded">{formData.baseUrl ? `${formData.baseUrl.replace(/\/$/, "")}/webhooks/receive-evo` : `${process.env.NEXT_PUBLIC_API_URL || "{base-url}"}/webhooks/receive-evo`}</code>
+                </p>
+              </div>
+            ) : (
+              <div className="border border-blue-200 dark:border-blue-800 p-3 rounded-md bg-blue-50 dark:bg-blue-950/30">
+                <p className="text-sm text-blue-900 dark:text-blue-100">
+                  <strong>URL padrão do webhook será utilizada</strong>
+                  <br />
+                  Webhook: <code className="bg-blue-100 dark:bg-blue-900 px-2 py-0.5 rounded text-blue-900 dark:text-blue-100">{process.env.NEXT_PUBLIC_API_URL || "URL do ambiente"}/webhooks/receive-evo</code>
+                </p>
+              </div>
+            )}
 
-            <div className="border p-3 rounded-md">
-              <h4 className="font-medium text-sm mb-2">Configurações Automáticas:</h4>
-              <ul className="text-sm text-muted-foreground space-y-1">
+
+            <div className="border border-gray-200 dark:border-gray-700 p-3 rounded-md bg-gray-50 dark:bg-gray-900/30">
+              <h4 className="font-medium text-sm mb-2 text-gray-900 dark:text-gray-100">Configurações Automáticas:</h4>
+              <ul className="text-sm text-gray-700 dark:text-gray-300 space-y-1">
                 <li>• Webhook por eventos: <strong>Desativado</strong> (uma única URL para todos)</li>
                 <li>• Evento monitorado: <strong>MESSAGES_UPSERT</strong> (apenas mensagens)</li>
                 <li>• Base64: <strong>Ativado</strong> (dados em base64 nos webhooks)</li>
