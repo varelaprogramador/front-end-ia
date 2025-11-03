@@ -15,6 +15,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Credential, TestCredentialResponse } from "@/types/credential";
 import { Loader2, CheckCircle2, XCircle, TestTube } from "lucide-react";
+import JSONPretty from "react-json-pretty";
+import "react-json-pretty/themes/monikai.css";
 
 interface TestCredentialDialogProps {
   credential: Credential;
@@ -181,25 +183,43 @@ export function TestCredentialDialog({
 
                 {/* Tabs para Response */}
                 <Tabs defaultValue="data" className="w-full">
-                  <TabsList className="grid w-full grid-cols-2">
+                  <TabsList className="grid w-full grid-cols-2 bg-muted/30 dark:bg-muted">
                     <TabsTrigger value="data">Dados da Resposta</TabsTrigger>
                     <TabsTrigger value="headers">Headers da Resposta</TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="data" className="space-y-2">
-                    <div className="rounded-lg bg-muted p-4">
-                      <pre className="text-xs overflow-auto max-h-96">
-                        {formatJson(result.data)}
-                      </pre>
+                    <div className="rounded-lg border bg-muted/30 p-4 overflow-auto max-h-96">
+                      <JSONPretty
+                        id="json-pretty-response-data"
+                        data={result.data}
+                        theme={{
+                          main: 'line-height:1.3;color:var(--foreground);background:transparent;overflow:auto;',
+                          error: 'line-height:1.3;color:#f44336;background:transparent;overflow:auto;',
+                          key: 'color:#4fc3f7;',
+                          string: 'color:#81c784;',
+                          value: 'color:#ffb74d;',
+                          boolean: 'color:#ff8a65;',
+                        }}
+                      />
                     </div>
                   </TabsContent>
 
                   <TabsContent value="headers" className="space-y-2">
                     {result.headers ? (
-                      <div className="rounded-lg bg-muted p-4">
-                        <pre className="text-xs overflow-auto max-h-96">
-                          {formatJson(result.headers)}
-                        </pre>
+                      <div className="rounded-lg border bg-muted/30 p-4 overflow-auto max-h-96">
+                        <JSONPretty
+                          id="json-pretty-response-headers"
+                          data={result.headers}
+                          theme={{
+                            main: 'line-height:1.3;color:var(--foreground);background:transparent;overflow:auto;',
+                            error: 'line-height:1.3;color:#f44336;background:transparent;overflow:auto;',
+                            key: 'color:#4fc3f7;',
+                            string: 'color:#81c784;',
+                            value: 'color:#ffb74d;',
+                            boolean: 'color:#ff8a65;',
+                          }}
+                        />
                       </div>
                     ) : (
                       <p className="text-sm text-muted-foreground text-center py-8">
@@ -211,13 +231,24 @@ export function TestCredentialDialog({
 
                 {/* Validação contra Success Model */}
                 {credential.successModel && result.success && (
-                  <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
-                    <p className="text-sm font-medium text-blue-900 mb-2">
+                  <div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800 p-4">
+                    <p className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">
                       Modelo de Sucesso Esperado
                     </p>
-                    <pre className="text-xs text-blue-800 overflow-auto max-h-40">
-                      {formatJson(credential.successModel)}
-                    </pre>
+                    <div className="rounded border bg-white dark:bg-blue-900/30 p-3 overflow-auto max-h-40">
+                      <JSONPretty
+                        id="json-pretty-success-model"
+                        data={credential.successModel}
+                        theme={{
+                          main: 'line-height:1.3;color:#1e40af;background:transparent;overflow:auto;',
+                          error: 'line-height:1.3;color:#f44336;background:transparent;overflow:auto;',
+                          key: 'color:#2563eb;',
+                          string: 'color:#059669;',
+                          value: 'color:#d97706;',
+                          boolean: 'color:#dc2626;',
+                        }}
+                      />
+                    </div>
                   </div>
                 )}
               </CardContent>
