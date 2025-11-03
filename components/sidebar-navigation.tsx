@@ -26,6 +26,7 @@ import {
   Smartphone,
   User,
   FileText,
+  Key,
 } from "lucide-react"
 
 export function SidebarNavigation() {
@@ -140,6 +141,12 @@ export function SidebarNavigation() {
       href: "/instances",
       icon: Smartphone,
       description: "Gerenciar instâncias Evolution",
+    },
+    {
+      title: "Credenciais",
+      href: "/credenciais",
+      icon: Key,
+      description: "Gerenciar credenciais de API",
     },
     {
       title: "Documentação",

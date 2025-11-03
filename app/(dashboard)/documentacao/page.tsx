@@ -13,7 +13,8 @@ import {
   Workflow,
   Briefcase,
   Lock,
-  Video
+  Video,
+  Key
 } from "lucide-react"
 
 export default function DocumentacaoPage() {
@@ -30,7 +31,7 @@ export default function DocumentacaoPage() {
       </div>
 
       <Tabs defaultValue="workspace" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3 lg:grid-cols-9">
+        <TabsList className="grid w-full grid-cols-3 lg:grid-cols-10">
           <TabsTrigger value="workspace">
             <Briefcase className="h-4 w-4 mr-2" />
             Workspace
@@ -46,6 +47,10 @@ export default function DocumentacaoPage() {
           <TabsTrigger value="instances">
             <MessageSquare className="h-4 w-4 mr-2" />
             Instâncias
+          </TabsTrigger>
+          <TabsTrigger value="credentials">
+            <Key className="h-4 w-4 mr-2" />
+            Credenciais
           </TabsTrigger>
           <TabsTrigger value="settings">
             <Settings className="h-4 w-4 mr-2" />
