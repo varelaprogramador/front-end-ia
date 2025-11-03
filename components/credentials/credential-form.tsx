@@ -350,7 +350,7 @@ export function CredentialForm({ credential, onSuccess, onCancel }: CredentialFo
                       defaultLanguage="json"
                       value={formData.customHeaders}
                       onChange={(value) => setFormData({ ...formData, customHeaders: value || "" })}
-                      theme={theme === "dark" ? "vs-dark" : "light"}
+                      theme={editorTheme}
                       options={{
                         minimap: { enabled: false },
                         fontSize: 13,
@@ -557,7 +557,7 @@ export function CredentialForm({ credential, onSuccess, onCancel }: CredentialFo
                         defaultLanguage="json"
                         value={formData.data}
                         onChange={(value) => setFormData({ ...formData, data: value || "" })}
-                        theme={theme === "dark" ? "vs-dark" : "light"}
+                        theme={editorTheme}
                         options={{
                           minimap: { enabled: false },
                           fontSize: 13,
@@ -664,7 +664,7 @@ export function CredentialForm({ credential, onSuccess, onCancel }: CredentialFo
                           defaultLanguage="json"
                           value={formData.successModel}
                           onChange={(value) => setFormData({ ...formData, successModel: value || "" })}
-                          theme={theme === "dark" ? "vs-dark" : "light"}
+                          theme={editorTheme}
                           options={{
                             minimap: { enabled: false },
                             fontSize: 13,
