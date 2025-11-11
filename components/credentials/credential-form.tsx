@@ -346,6 +346,7 @@ export function CredentialForm({ credential, onSuccess, onCancel }: CredentialFo
                   // Monaco Editor - VS Code style
                   <div className="border rounded-lg overflow-hidden">
                     <Editor
+                      key={`headers-${editorTheme}`}
                       height="200px"
                       defaultLanguage="json"
                       value={formData.customHeaders}
@@ -553,6 +554,7 @@ export function CredentialForm({ credential, onSuccess, onCancel }: CredentialFo
                     // Monaco Editor - VS Code style
                     <div className="border rounded-lg overflow-hidden">
                       <Editor
+                        key={`data-${editorTheme}`}
                         height="300px"
                         defaultLanguage="json"
                         value={formData.data}
@@ -660,6 +662,7 @@ export function CredentialForm({ credential, onSuccess, onCancel }: CredentialFo
                       // Monaco Editor - VS Code style
                       <div className="border rounded-lg overflow-hidden">
                         <Editor
+                          key={`success-${editorTheme}`}
                           height="200px"
                           defaultLanguage="json"
                           value={formData.successModel}

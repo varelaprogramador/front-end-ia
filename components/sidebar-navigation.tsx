@@ -137,6 +137,12 @@ export function SidebarNavigation() {
       description: "Visão geral dos agentes",
     },
     {
+      title: "Perfil",
+      href: "/perfil",
+      icon: User,
+      description: "Meu perfil e configurações",
+    },
+    {
       title: "Instâncias",
       href: "/instances",
       icon: Smartphone,
