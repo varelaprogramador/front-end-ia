@@ -68,7 +68,7 @@ export default function PerfilPage() {
     try {
       const parsedMetadata = JSON.parse(publicMetadata);
       await user.update({
-        publicMetadata: parsedMetadata,
+        publicMetadata: parsedMetadata as any,
       });
       toast.success("Metadata atualizado com sucesso!");
     } catch (error: any) {
@@ -174,11 +174,11 @@ export default function PerfilPage() {
               <div className="flex gap-2 mt-3 justify-center md:justify-start">
                 <Badge variant="secondary" className="flex items-center gap-1">
                   <Shield className="h-3 w-3" />
-                  {user.publicMetadata?.role || "Usuário"}
+                  {(user.publicMetadata as any)?.role || "Usuário"}
                 </Badge>
                 <Badge variant="outline" className="flex items-center gap-1">
                   <Calendar className="h-3 w-3" />
-                  Desde {formatDate(user.createdAt)}
+                  Desde {formatDate(user.createdAt?.getTime() || null)}
                 </Badge>
               </div>
             </div>
@@ -339,7 +339,7 @@ export default function PerfilPage() {
                   <div>
                     <h4 className="font-medium">Senha</h4>
                     <p className="text-sm text-muted-foreground">
-                      Última atualização: {formatDate(user.passwordEnabled ? user.updatedAt : null)}
+                      Última atualização: {formatDate(user.passwordEnabled ? user.updatedAt?.getTime() || null : null)}
                     </p>
                   </div>
                   <Button variant="outline" onClick={() => openUserProfile()}>
@@ -382,11 +382,11 @@ export default function PerfilPage() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Criado em:</span>
-                      <span>{formatDate(user.createdAt)}</span>
+                      <span>{formatDate(user.createdAt?.getTime() || null)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Última atualização:</span>
-                      <span>{formatDate(user.updatedAt)}</span>
+                      <span>{formatDate(user.updatedAt?.getTime() || null)}</span>
                     </div>
                   </div>
                 </div>
