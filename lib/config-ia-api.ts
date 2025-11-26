@@ -136,6 +136,21 @@ class ConfigIAService {
       method: 'DELETE',
     })
   }
+
+  // POST /config-ia/:id/create-n8n-workspace - Criar workspace no N8N
+  async createN8NWorkspace(id: string): Promise<ApiResponse<any>> {
+    return this.makeRequest<any>(`/${id}/create-n8n-workspace`, {
+      method: 'POST',
+    })
+  }
+
+  // POST /config-ia/create-with-n8n - Criar workspace no N8N primeiro, depois no banco
+  async createWithN8N(data: CreateConfigIARequest): Promise<ApiResponse<{ workspace: ConfigIA; n8nResponse: any }>> {
+    return this.makeRequest<{ workspace: ConfigIA; n8nResponse: any }>('/create-with-n8n', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
 }
 
 // Exportar instância singleton

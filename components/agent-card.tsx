@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import type { Agent } from "@/lib/agents-real"
-import { BarChart3, MessageSquare, MoreHorizontal, Settings, Trash2, Link as LinkIcon, Power, PhoneOff } from "lucide-react"
+import { BarChart3, MessageSquare, MoreHorizontal, Settings, Trash2, Link as LinkIcon, Power, PhoneOff, Key } from "lucide-react"
 import Link from "next/link"
 
 interface AgentCardProps {
@@ -15,9 +15,10 @@ interface AgentCardProps {
   onManageInstances?: (agent: Agent) => void
   onToggleStatus?: (agentId: string, newStatus: "active" | "inactive" | "development") => void
   onManageBlockedNumbers?: (agent: Agent) => void
+  onManageCredentials?: (agent: Agent) => void
 }
 
-export function AgentCard({ agent, onEdit, onDelete, onManageInstances, onToggleStatus, onManageBlockedNumbers }: AgentCardProps) {
+export function AgentCard({ agent, onEdit, onDelete, onManageInstances, onToggleStatus, onManageBlockedNumbers, onManageCredentials }: AgentCardProps) {
   const [showMenu, setShowMenu] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const statusColor = agent.status === "active" ? "bg-green-500" : agent.status === "development" ? "bg-yellow-500" : "bg-gray-400"
@@ -120,6 +121,19 @@ export function AgentCard({ agent, onEdit, onDelete, onManageInstances, onToggle
                       >
                         <LinkIcon className="h-4 w-4" />
                         Gerenciar Instâncias
+                      </button>
+                    )}
+                    {onManageCredentials && (
+                      <button
+                        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-purple-50 dark:hover:bg-purple-900/20 text-purple-600 dark:text-purple-400"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowMenu(false);
+                          onManageCredentials(agent);
+                        }}
+                      >
+                        <Key className="h-4 w-4" />
+                        Atribuir Credenciais
                       </button>
                     )}
                     {onManageBlockedNumbers && (

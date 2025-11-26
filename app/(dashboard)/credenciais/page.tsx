@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,14 +14,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -38,11 +31,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Key, Plus, MoreVertical, Pencil, Trash2, TestTube, Search, Calendar, MessageSquare, Workflow } from "lucide-react";
+import { Key, Plus, MoreVertical, Pencil, Trash2, TestTube, Search, Calendar, MessageSquare, Workflow, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Credential, CredentialType } from "@/types/credential";
 import { CredentialForm } from "@/components/credentials/credential-form";
 import { TestCredentialDialog } from "@/components/credentials/test-credential-dialog";
+import { ResendCredentialDialog } from "@/components/credentials/resend-credential-dialog";
 
 const credentialTypeLabels: Record<CredentialType, string> = {
   GOOGLE_CALENDAR: "Google Calendar",
@@ -65,11 +59,31 @@ export default function CredenciaisPage() {
   const [selectedCredential, setSelectedCredential] = useState<Credential | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isTestOpen, setIsTestOpen] = useState(false);
+  const [isResendOpen, setIsResendOpen] = useState(false);
   const [credentialToDelete, setCredentialToDelete] = useState<string | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     fetchCredentials();
+    setMounted(true);
   }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (openMenuId) {
+        const target = event.target as HTMLElement;
+        if (!target.closest('.action-menu-popup') && !target.closest('.action-menu-trigger')) {
+          setOpenMenuId(null);
+          setMenuPosition(null);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [openMenuId]);
 
   const fetchCredentials = async () => {
     try {
@@ -111,6 +125,29 @@ export default function CredenciaisPage() {
     } finally {
       setCredentialToDelete(null);
     }
+  };
+
+  const handleResend = (credential: Credential) => {
+    setSelectedCredential(credential);
+    setIsResendOpen(true);
+  };
+
+  const handleOpenMenu = (credentialId: string, event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const button = event.currentTarget;
+    const rect = button.getBoundingClientRect();
+
+    const position = {
+      top: rect.bottom + window.scrollY + 4,
+      left: rect.right + window.scrollX - 200, // 200px é a largura do menu
+    };
+
+    console.log('Opening menu:', { credentialId, position, rect, mounted });
+
+    setMenuPosition(position);
+    setOpenMenuId(credentialId);
   };
 
   const handleFormSuccess = () => {
@@ -210,32 +247,14 @@ export default function CredenciaisPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Ações</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => handleTest(credential)}>
-                              <TestTube className="h-4 w-4 mr-2" />
-                              Testar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleEdit(credential)}>
-                              <Pencil className="h-4 w-4 mr-2" />
-                              Editar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => setCredentialToDelete(credential.id)}
-                              className="text-red-600"
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Deletar
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 p-0 action-menu-trigger"
+                          onClick={(e) => handleOpenMenu(credential.id, e)}
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   );
@@ -276,6 +295,16 @@ export default function CredenciaisPage() {
         />
       )}
 
+      {/* Dialog de Reenvio para N8N */}
+      {selectedCredential && (
+        <ResendCredentialDialog
+          credential={selectedCredential}
+          open={isResendOpen}
+          onOpenChange={setIsResendOpen}
+          onSuccess={fetchCredentials}
+        />
+      )}
+
       {/* Alert Dialog de Confirmação */}
       <AlertDialog
         open={!!credentialToDelete}
@@ -297,6 +326,72 @@ export default function CredenciaisPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Menu Popup Global (Portal) */}
+      {typeof window !== 'undefined' && mounted && openMenuId && menuPosition && createPortal(
+        <div
+          className="action-menu-popup fixed z-[9999] min-w-[200px] rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg"
+          style={{
+            top: `${menuPosition.top}px`,
+            left: `${menuPosition.left}px`,
+          }}
+        >
+          <div className="px-3 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-700">
+            Ações
+          </div>
+          <div className="py-1">
+            <button
+              onClick={() => {
+                const credential = credentials.find(c => c.id === openMenuId);
+                if (credential) handleTest(credential);
+                setOpenMenuId(null);
+                setMenuPosition(null);
+              }}
+              className="flex items-center w-full px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            >
+              <TestTube className="h-4 w-4 mr-2" />
+              Testar
+            </button>
+            <button
+              onClick={() => {
+                const credential = credentials.find(c => c.id === openMenuId);
+                if (credential) handleResend(credential);
+                setOpenMenuId(null);
+                setMenuPosition(null);
+              }}
+              className="flex items-center w-full px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Reenviar para N8N
+            </button>
+            <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
+            <button
+              onClick={() => {
+                const credential = credentials.find(c => c.id === openMenuId);
+                if (credential) handleEdit(credential);
+                setOpenMenuId(null);
+                setMenuPosition(null);
+              }}
+              className="flex items-center w-full px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            >
+              <Pencil className="h-4 w-4 mr-2" />
+              Editar
+            </button>
+            <button
+              onClick={() => {
+                setCredentialToDelete(openMenuId);
+                setOpenMenuId(null);
+                setMenuPosition(null);
+              }}
+              className="flex items-center w-full px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Deletar
+            </button>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }

@@ -132,3 +132,20 @@ export async function testCredential(
   }
   return result.data;
 }
+
+// POST /credentials/:id/resend - Reenviar credencial para N8N
+export async function resendCredential(id: string): Promise<any> {
+  const response = await fetch(`${API_URL}/${id}/resend`, {
+    method: "POST",
+    headers: await getAuthHeaders(),
+    credentials: "include",
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.error || "Erro ao reenviar credencial");
+  }
+
+  return result;
+}

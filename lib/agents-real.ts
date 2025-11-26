@@ -207,3 +207,31 @@ export const searchAgents = async (
     return [];
   }
 };
+
+// Função para criar workspace no N8N
+export const createN8NWorkspace = async (
+  agentId: string
+): Promise<{ success: boolean; data?: any; error?: string }> => {
+  try {
+    const response = await configIAService.createN8NWorkspace(agentId);
+
+    if (response.success && response.data) {
+      return {
+        success: true,
+        data: response.data,
+      };
+    }
+
+    console.error("Failed to create N8N workspace:", response.error);
+    return {
+      success: false,
+      error: response.message || response.error || "Erro ao criar workspace no N8N",
+    };
+  } catch (error) {
+    console.error("Error creating N8N workspace:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Erro desconhecido",
+    };
+  }
+};

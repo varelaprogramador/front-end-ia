@@ -1,12 +1,14 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { AgentCard } from "@/components/agent-card"
 import { AgentForm } from "@/components/agent-form"
 import { ConfigIAInstancesDialog } from "@/components/config-ia-instances-dialog"
 import { DeactivatedAgentsDialog } from "@/components/deactivated-agents-dialog"
+import { ManageCredentialsDialog } from "@/components/manage-credentials-dialog"
 import { KPICards } from "@/components/kpi-cards"
 import { getAgents, deleteAgent, toggleAgentStatus, type Agent } from "@/lib/agents-real"
 import { configIAService } from "@/lib/config-ia-api"
@@ -26,6 +28,8 @@ export default function WorkspacePage() {
   const [selectedConfigIA, setSelectedConfigIA] = useState<any>(null)
   const [showBlockedNumbersDialog, setShowBlockedNumbersDialog] = useState(false)
   const [selectedAgentForBlocking, setSelectedAgentForBlocking] = useState<Agent | null>(null)
+  const [showCredentialsDialog, setShowCredentialsDialog] = useState(false)
+  const [selectedAgentForCredentials, setSelectedAgentForCredentials] = useState<Agent | null>(null)
   const { toast } = useToast()
   const userId = useUserId()
 
@@ -268,6 +272,23 @@ export default function WorkspacePage() {
     }
   }
 
+  // Função para gerenciar credenciais
+  const handleManageCredentials = async (agent: Agent) => {
+    try {
+      console.log('🔑 [CREDENTIALS] Abrindo dialog para gerenciar credenciais do agente:', agent.name)
+
+      setSelectedAgentForCredentials(agent)
+      setShowCredentialsDialog(true)
+    } catch (error) {
+      console.error('Error opening credentials dialog:', error)
+      toast({
+        title: "Erro",
+        description: "Erro interno ao abrir gerenciamento de credenciais",
+        variant: "destructive",
+      })
+    }
+  }
+
   // Estado de carregamento inicial
   if (loading) {
     return (
@@ -302,10 +323,12 @@ export default function WorkspacePage() {
             >
               <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
             </Button>
-            <Button onClick={handleCreateAgent} className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              Novo Agente
-            </Button>
+            <Link href="/workspace/novo">
+              <Button className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                Novo Workspace
+              </Button>
+            </Link>
           </div>
         </div>
 
@@ -356,6 +379,7 @@ export default function WorkspacePage() {
                 onManageInstances={handleManageInstances}
                 onToggleStatus={handleToggleStatus}
                 onManageBlockedNumbers={handleManageBlockedNumbers}
+                onManageCredentials={handleManageCredentials}
               />
             ))}
           </div>
@@ -394,6 +418,13 @@ export default function WorkspacePage() {
           onOpenChange={setShowBlockedNumbersDialog}
         />
       )}
+
+      <ManageCredentialsDialog
+        agent={selectedAgentForCredentials}
+        open={showCredentialsDialog}
+        onOpenChange={setShowCredentialsDialog}
+        onSuccess={loadAgents}
+      />
     </div>
   )
 }

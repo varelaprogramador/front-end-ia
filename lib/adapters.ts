@@ -18,6 +18,8 @@ export interface Agent {
   kommoSubdomain?: string
   kommoAccessToken?: string
   kommodPipelineId?: string
+  // Credenciais vinculadas
+  credentialIds?: string[]
 }
 
 // Adaptador para converter ConfigIA (backend) para Agent (frontend)
@@ -39,6 +41,8 @@ export const configIAToAgent = (config: ConfigIA): Agent => {
     kommoSubdomain: config.kommoSubdomain || undefined,
     kommoAccessToken: config.kommoAccessToken || undefined,
     kommodPipelineId: config.kommodPipelineId || undefined,
+    // Credenciais
+    credentialIds: (config as any).credentialIds || [],
   }
 }
 
@@ -54,6 +58,7 @@ export const agentToCreateConfigIA = (agent: Omit<Agent, 'id' | 'createdAt' | 't
     kommoSubdomain: agent.kommoSubdomain || undefined,
     kommoAccessToken: agent.kommoAccessToken || undefined,
     kommodPipelineId: agent.kommodPipelineId || undefined,
+    credentialIds: agent.credentialIds || [],
   }
 }
 
@@ -69,6 +74,7 @@ export const agentToUpdateConfigIA = (agent: Partial<Agent>) => {
   if (agent.kommoSubdomain !== undefined) updateData.kommoSubdomain = agent.kommoSubdomain || undefined
   if (agent.kommoAccessToken !== undefined) updateData.kommoAccessToken = agent.kommoAccessToken || undefined
   if (agent.kommodPipelineId !== undefined) updateData.kommodPipelineId = agent.kommodPipelineId || undefined
+  if (agent.credentialIds !== undefined) updateData.credentialIds = agent.credentialIds
 
   return updateData
 }

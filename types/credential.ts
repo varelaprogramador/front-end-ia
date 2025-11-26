@@ -14,6 +14,7 @@ export interface Credential {
   successModel: Record<string, any> | null;
   data: Record<string, any> | null;
   isActive: boolean;
+  id_n8n: string | null; // ID da credencial no N8N
   createdAt: Date;
   updatedAt: Date;
 }
