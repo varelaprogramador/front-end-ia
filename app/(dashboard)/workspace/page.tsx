@@ -90,12 +90,6 @@ export default function WorkspacePage() {
     setShowForm(true)
   }
 
-  // Função para editar agente
-  const handleEditAgent = (agent: Agent) => {
-    setEditingAgent(agent)
-    setShowForm(true)
-  }
-
   // Função para deletar agente
   const handleDeleteAgent = async (agentId: string) => {
     if (confirm("Tem certeza que deseja excluir este agente?")) {
@@ -374,7 +368,6 @@ export default function WorkspacePage() {
               <AgentCard
                 key={agent.id}
                 agent={agent}
-                onEdit={handleEditAgent}
                 onDelete={handleDeleteAgent}
                 onManageInstances={handleManageInstances}
                 onToggleStatus={handleToggleStatus}

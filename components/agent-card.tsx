@@ -11,7 +11,6 @@ import Link from "next/link"
 
 interface AgentCardProps {
   agent: Agent
-  onEdit?: (agent: Agent) => void
   onDelete?: (agentId: string) => void
   onManageInstances?: (agent: Agent) => void
   onToggleStatus?: (agentId: string, newStatus: "active" | "inactive" | "development") => void
@@ -19,7 +18,8 @@ interface AgentCardProps {
   onManageCredentials?: (agent: Agent) => void
 }
 
-export function AgentCard({ agent, onEdit, onDelete, onManageInstances, onToggleStatus, onManageBlockedNumbers, onManageCredentials }: AgentCardProps) {
+export function AgentCard({ agent, onDelete, onManageInstances, onToggleStatus, onManageBlockedNumbers, onManageCredentials }: AgentCardProps) {
+  const router = useRouter()
   const [showMenu, setShowMenu] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const statusColor = agent.status === "active" ? "bg-green-500" : agent.status === "development" ? "bg-yellow-500" : "bg-gray-400"
@@ -105,7 +105,7 @@ export function AgentCard({ agent, onEdit, onDelete, onManageInstances, onToggle
                         e.stopPropagation();
                         setShowMenu(false);
                         console.log('Edit clicked for agent:', agent.name);
-                        onEdit?.(agent);
+                        router.push(`/workspace/editar/${agent.id}`);
                       }}
                     >
                       <Settings className="h-4 w-4" />
