@@ -14,14 +14,13 @@ import WorkspaceFormStep2 from "@/components/workspace/workspace-form-step2";
 import WorkspaceFormStep3 from "@/components/workspace/workspace-form-step3";
 
 // Interface para os dados do formulário
+// Nota: webhookDev e webhookProd são gerados automaticamente pelo backend
 interface WorkspaceFormData {
   // Step 1: Informações Básicas
   name: string;
   status: "active" | "inactive" | "development";
   prompt: string;
   description: string;
-  webhookDev: string;
-  webhookProd: string;
 
   // Step 2: Integração Kommo
   kommoEnabled: boolean;
@@ -64,8 +63,6 @@ export default function NovoWorkspacePage() {
     status: "development",
     prompt: "",
     description: "",
-    webhookDev: "",
-    webhookProd: "",
 
     // Step 2
     kommoEnabled: false,
@@ -88,14 +85,6 @@ export default function NovoWorkspacePage() {
     }
     if (!formData.prompt.trim()) {
       toast.error("Prompt é obrigatório");
-      return false;
-    }
-    if (!formData.webhookDev.trim()) {
-      toast.error("Webhook Dev é obrigatório");
-      return false;
-    }
-    if (!formData.webhookProd.trim()) {
-      toast.error("Webhook Prod é obrigatório");
       return false;
     }
     return true;
@@ -141,13 +130,12 @@ export default function NovoWorkspacePage() {
 
     try {
       // Preparar dados do workspace
+      // Nota: webhookDev e webhookProd são gerados automaticamente pelo backend
       const workspaceData: Omit<Agent, "id" | "createdAt" | "totalMessages" | "confirmedAppointments"> = {
         name: formData.name,
         status: formData.status,
         prompt: formData.prompt,
         description: formData.description,
-        webhookDev: formData.webhookDev,
-        webhookProd: formData.webhookProd,
         kommoSubdomain: formData.kommoEnabled ? formData.kommoSubdomain : undefined,
         kommoAccessToken: formData.kommoEnabled ? formData.kommoAccessToken : undefined,
         kommodPipelineId: formData.kommoEnabled ? formData.kommodPipelineId : undefined,

@@ -15,8 +15,6 @@ interface WorkspaceFormData {
   status: "active" | "inactive" | "development";
   prompt: string;
   description: string;
-  webhookDev: string;
-  webhookProd: string;
   kommoEnabled: boolean;
   kommoSubdomain: string;
   kommoAccessToken: string;

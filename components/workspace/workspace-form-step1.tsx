@@ -11,8 +11,6 @@ interface WorkspaceFormData {
   status: "active" | "inactive" | "development";
   prompt: string;
   description: string;
-  webhookDev: string;
-  webhookProd: string;
   kommoEnabled: boolean;
   kommoSubdomain: string;
   kommoAccessToken: string;
@@ -73,34 +71,6 @@ export default function WorkspaceFormStep1({ formData, updateFormData }: Workspa
           <p className="text-xs text-muted-foreground">
             Workspaces em desenvolvimento não serão executados automaticamente
           </p>
-        </div>
-
-        {/* Webhooks */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="webhookDev">
-              Webhook Dev <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              id="webhookDev"
-              value={formData.webhookDev}
-              onChange={(e) => updateFormData({ webhookDev: e.target.value })}
-              placeholder="https://dev.webhook.com/agent"
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="webhookProd">
-              Webhook Prod <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              id="webhookProd"
-              value={formData.webhookProd}
-              onChange={(e) => updateFormData({ webhookProd: e.target.value })}
-              placeholder="https://prod.webhook.com/agent"
-              required
-            />
-          </div>
         </div>
 
         {/* Prompt */}

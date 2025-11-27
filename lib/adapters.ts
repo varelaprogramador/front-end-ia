@@ -1,11 +1,12 @@
 import { ConfigIA, EvolutionInstanceSummary } from './api-config'
 
 // Interface Agent do frontend (baseada no arquivo agents.ts existente)
+// Nota: webhookDev e webhookProd são gerados automaticamente pelo backend
 export interface Agent {
   id: string
   name: string
-  webhookDev: string
-  webhookProd: string
+  webhookDev?: string
+  webhookProd?: string
   prompt: string
   status: "active" | "inactive" | "development"
   createdAt: Date

@@ -17,8 +17,6 @@ interface WorkspaceFormData {
   status: "active" | "inactive" | "development";
   prompt: string;
   description: string;
-  webhookDev: string;
-  webhookProd: string;
   kommoEnabled: boolean;
   kommoSubdomain: string;
   kommoAccessToken: string;
@@ -105,14 +103,12 @@ export default function WorkspaceFormStep3({
       setLoadingStage("sending");
       await new Promise(resolve => setTimeout(resolve, 800)); // Animação inicial
 
-      // 1. Preparar dados do workspace
+      // 1. Preparar dados do workspace (webhooks são gerados automaticamente pelo backend)
       const workspaceData = {
         userId,
         nome: formData.name,
         prompt: formData.prompt,
         status: formData.status,
-        webhookUrlDev: formData.webhookDev,
-        webhookUrlProd: formData.webhookProd,
         kommoSubdomain: formData.kommoEnabled ? formData.kommoSubdomain : undefined,
         kommoAccessToken: formData.kommoEnabled ? formData.kommoAccessToken : undefined,
         kommodPipelineId: formData.kommoEnabled ? formData.kommodPipelineId : undefined,
