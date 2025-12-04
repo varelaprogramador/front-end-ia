@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -36,15 +36,15 @@ import {
   Clock,
   Loader2,
   MessageSquare,
-  Play,
   Power,
   RefreshCw,
   Save,
-  Send,
   Settings,
   Sparkles,
-  Calendar,
-  History
+  History,
+  GitBranch,
+  Users,
+  Plus
 } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { useUserId } from "@/lib/use-user-id"
@@ -53,8 +53,16 @@ import {
   type Funnel,
   type FollowUpAgent,
   type FollowUpHistory,
-  type CreateFollowUpAgentRequest,
+  type FollowUpFlowStep,
+  type LeadInFollowUpFlow,
+  type FunnelLead,
 } from "@/lib/funnel-api"
+import {
+  FollowUpFlowBoard,
+  type FollowUpStep,
+  type LeadInFlow,
+  DEFAULT_FOLLOW_UP_STEPS
+} from "@/components/funnel/follow-up-flow-board"
 
 const followUpAgentSchema = z.object({
   name: z.string().min(1, "Nome obrigatório"),
@@ -111,6 +119,34 @@ const STATUS_LABELS: Record<string, string> = {
   failed: "Falhou",
 }
 
+// Helper to convert API types to component types
+function apiStepToComponentStep(step: FollowUpFlowStep): FollowUpStep {
+  return {
+    id: step.id,
+    name: step.name,
+    order: step.order,
+    delayDays: step.delayDays,
+    delayHours: step.delayHours,
+    messageTemplate: step.messageTemplate,
+    isAutomatic: step.isAutomatic,
+    color: step.color,
+    type: step.type,
+  }
+}
+
+function apiLeadToComponentLead(leadInFlow: LeadInFollowUpFlow): LeadInFlow {
+  return {
+    id: leadInFlow.id,
+    lead: leadInFlow.lead,
+    currentStepId: leadInFlow.currentStepId,
+    nextFollowUpAt: leadInFlow.nextFollowUpAt ? new Date(leadInFlow.nextFollowUpAt) : undefined,
+    followUpCount: leadInFlow.followUpCount,
+    status: leadInFlow.status,
+    enteredAt: new Date(leadInFlow.enteredAt),
+    lastFollowUpAt: leadInFlow.lastFollowUpAt ? new Date(leadInFlow.lastFollowUpAt) : undefined,
+  }
+}
+
 export default function FollowUpAgentPage({ params }: { params: { id: string } }) {
   const funnelId = params.id
   const router = useRouter()
@@ -123,6 +159,12 @@ export default function FollowUpAgentPage({ params }: { params: { id: string } }
   const [agent, setAgent] = useState<FollowUpAgent | null>(null)
   const [history, setHistory] = useState<FollowUpHistory[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
+
+  // Follow-up Flow State
+  const [flowSteps, setFlowSteps] = useState<FollowUpStep[]>([])
+  const [leadsInFlow, setLeadsInFlow] = useState<LeadInFlow[]>([])
+  const [flowLoading, setFlowLoading] = useState(false)
+  const [availableLeads, setAvailableLeads] = useState<FunnelLead[]>([])
 
   const {
     register,
@@ -169,6 +211,9 @@ export default function FollowUpAgentPage({ params }: { params: { id: string } }
       const funnelResponse = await funnelService.getFunnelById(funnelId)
       if (funnelResponse.data) {
         setFunnel(funnelResponse.data)
+        // Get available leads from funnel stages
+        const leads = funnelResponse.data.stages?.flatMap(s => s.leads || []) || []
+        setAvailableLeads(leads)
       }
 
       // Load follow-up agent
@@ -196,6 +241,9 @@ export default function FollowUpAgentPage({ params }: { params: { id: string } }
 
       // Load history
       await loadHistory()
+
+      // Load follow-up flow
+      await loadFlowData()
     } catch (error) {
       console.error("Error loading data:", error)
       toast({
@@ -220,6 +268,39 @@ export default function FollowUpAgentPage({ params }: { params: { id: string } }
       setHistoryLoading(false)
     }
   }
+
+  const loadFlowData = useCallback(async () => {
+    try {
+      setFlowLoading(true)
+
+      // Load flow steps
+      const stepsResponse = await funnelService.getFollowUpFlowSteps(funnelId)
+      if (stepsResponse.data && stepsResponse.data.length > 0) {
+        setFlowSteps(stepsResponse.data.map(apiStepToComponentStep))
+      } else {
+        // Use default steps if none exist (will be created when first step is added)
+        setFlowSteps(DEFAULT_FOLLOW_UP_STEPS.map((s, i) => ({
+          ...s,
+          id: `temp-${i}`,
+        })))
+      }
+
+      // Load leads in flow
+      const leadsResponse = await funnelService.getLeadsInFlow(funnelId)
+      if (leadsResponse.data) {
+        setLeadsInFlow(leadsResponse.data.map(apiLeadToComponentLead))
+      }
+    } catch (error) {
+      console.error("Error loading flow data:", error)
+      // Set defaults on error
+      setFlowSteps(DEFAULT_FOLLOW_UP_STEPS.map((s, i) => ({
+        ...s,
+        id: `temp-${i}`,
+      })))
+    } finally {
+      setFlowLoading(false)
+    }
+  }, [funnelId])
 
   const onSubmit = async (data: FollowUpAgentFormData) => {
     try {
@@ -261,6 +342,158 @@ export default function FollowUpAgentPage({ params }: { params: { id: string } }
     }
   }
 
+  // Flow handlers
+  const handleMoveLeadToStep = async (leadFlowId: string, stepId: string) => {
+    try {
+      await funnelService.moveLeadInFlow(leadFlowId, { stepId })
+      await loadFlowData()
+      toast({ title: "Lead movido!" })
+    } catch (error) {
+      console.error("Error moving lead:", error)
+      toast({ title: "Erro ao mover lead", variant: "destructive" })
+    }
+  }
+
+  const handleSendFollowUp = async (leadFlowId: string) => {
+    try {
+      await funnelService.sendFollowUpInFlow(leadFlowId)
+      toast({ title: "Follow-up enviado!" })
+      await loadFlowData()
+      await loadHistory()
+    } catch (error) {
+      console.error("Error sending follow-up:", error)
+      toast({ title: "Erro ao enviar follow-up", variant: "destructive" })
+    }
+  }
+
+  const handlePauseResume = async (leadFlowId: string) => {
+    try {
+      await funnelService.pauseResumeLeadInFlow(leadFlowId)
+      await loadFlowData()
+    } catch (error) {
+      console.error("Error toggling pause:", error)
+      toast({ title: "Erro ao pausar/retomar", variant: "destructive" })
+    }
+  }
+
+  const handleRemoveFromFlow = async (leadFlowId: string) => {
+    try {
+      await funnelService.removeLeadFromFlow(leadFlowId)
+      await loadFlowData()
+      toast({ title: "Lead removido do fluxo" })
+    } catch (error) {
+      console.error("Error removing lead:", error)
+      toast({ title: "Erro ao remover lead", variant: "destructive" })
+    }
+  }
+
+  const handleMarkAsWon = async (leadFlowId: string) => {
+    try {
+      await funnelService.markLeadAsWonInFlow(leadFlowId)
+      await loadFlowData()
+      toast({ title: "Lead marcado como ganho!" })
+    } catch (error) {
+      console.error("Error marking as won:", error)
+      toast({ title: "Erro ao marcar como ganho", variant: "destructive" })
+    }
+  }
+
+  const handleMarkAsLost = async (leadFlowId: string) => {
+    try {
+      await funnelService.markLeadAsLostInFlow(leadFlowId)
+      await loadFlowData()
+      toast({ title: "Lead marcado como perdido" })
+    } catch (error) {
+      console.error("Error marking as lost:", error)
+      toast({ title: "Erro ao marcar como perdido", variant: "destructive" })
+    }
+  }
+
+  const handleAddStep = async (step: Omit<FollowUpStep, "id">) => {
+    try {
+      // First initialize default steps if this is the first step
+      if (flowSteps.every(s => s.id.startsWith('temp-'))) {
+        await funnelService.initializeDefaultFlowSteps(funnelId)
+      }
+
+      await funnelService.createFollowUpFlowStep(funnelId, {
+        name: step.name,
+        order: step.order,
+        delayDays: step.delayDays,
+        delayHours: step.delayHours,
+        messageTemplate: step.messageTemplate,
+        isAutomatic: step.isAutomatic,
+        color: step.color,
+        type: step.type,
+      })
+      await loadFlowData()
+      toast({ title: "Etapa criada!" })
+    } catch (error) {
+      console.error("Error adding step:", error)
+      toast({ title: "Erro ao criar etapa", variant: "destructive" })
+    }
+  }
+
+  const handleEditStep = async (stepId: string, step: Partial<FollowUpStep>) => {
+    try {
+      await funnelService.updateFollowUpFlowStep(stepId, {
+        name: step.name,
+        order: step.order,
+        delayDays: step.delayDays,
+        delayHours: step.delayHours,
+        messageTemplate: step.messageTemplate,
+        isAutomatic: step.isAutomatic,
+        color: step.color,
+      })
+      await loadFlowData()
+      toast({ title: "Etapa atualizada!" })
+    } catch (error) {
+      console.error("Error editing step:", error)
+      toast({ title: "Erro ao atualizar etapa", variant: "destructive" })
+    }
+  }
+
+  const handleDeleteStep = async (stepId: string) => {
+    try {
+      await funnelService.deleteFollowUpFlowStep(stepId)
+      await loadFlowData()
+      toast({ title: "Etapa excluída!" })
+    } catch (error) {
+      console.error("Error deleting step:", error)
+      toast({ title: "Erro ao excluir etapa", variant: "destructive" })
+    }
+  }
+
+  const handleAddLeadToFlow = async (leadId: string) => {
+    try {
+      // Initialize flow if not yet created
+      if (flowSteps.every(s => s.id.startsWith('temp-'))) {
+        await funnelService.initializeDefaultFlowSteps(funnelId)
+        await loadFlowData()
+        // After initialization, retry adding the lead
+        const freshSteps = await funnelService.getFollowUpFlowSteps(funnelId)
+        if (freshSteps.data && freshSteps.data.length > 0) {
+          const firstStep = freshSteps.data.find(s => s.type === 'followup' && s.order === 0)
+          await funnelService.addLeadToFlow(funnelId, {
+            leadId,
+            stepId: firstStep?.id,
+          })
+        }
+      } else {
+        const firstStep = flowSteps.find(s => s.type === 'followup' && s.order === 0)
+        await funnelService.addLeadToFlow(funnelId, {
+          leadId,
+          stepId: firstStep?.id,
+        })
+      }
+      await loadFlowData()
+      toast({ title: "Lead adicionado ao fluxo!" })
+    } catch (error) {
+      console.error("Error adding lead to flow:", error)
+      toast({ title: "Erro ao adicionar lead", variant: "destructive" })
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-100px)]">
@@ -269,8 +502,13 @@ export default function FollowUpAgentPage({ params }: { params: { id: string } }
     )
   }
 
+  // Get leads not in flow
+  const leadsNotInFlow = availableLeads.filter(
+    lead => !leadsInFlow.some(lf => lf.lead.id === lead.id)
+  )
+
   return (
-    <div className="container mx-auto px-4 py-6 space-y-6 max-w-5xl">
+    <div className="container mx-auto px-4 py-6 space-y-6 max-w-6xl">
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={() => router.push("/funil")}>
@@ -318,8 +556,12 @@ export default function FollowUpAgentPage({ params }: { params: { id: string } }
       )}
 
       {/* Tabs */}
-      <Tabs defaultValue="config" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+      <Tabs defaultValue="flow" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="flow" className="flex items-center gap-2">
+            <GitBranch className="h-4 w-4" />
+            Fluxo de Follow-up
+          </TabsTrigger>
           <TabsTrigger value="config" className="flex items-center gap-2">
             <Settings className="h-4 w-4" />
             Configurações
@@ -329,6 +571,63 @@ export default function FollowUpAgentPage({ params }: { params: { id: string } }
             Histórico
           </TabsTrigger>
         </TabsList>
+
+        {/* Flow Tab */}
+        <TabsContent value="flow" className="space-y-6 mt-6">
+          {/* Add Lead to Flow */}
+          {leadsNotInFlow.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  Adicionar Lead ao Fluxo
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-2 flex-wrap">
+                  {leadsNotInFlow.slice(0, 10).map(lead => (
+                    <Button
+                      key={lead.id}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleAddLeadToFlow(lead.id)}
+                      className="gap-1"
+                    >
+                      <Plus className="h-3 w-3" />
+                      {lead.name}
+                    </Button>
+                  ))}
+                  {leadsNotInFlow.length > 10 && (
+                    <Badge variant="secondary">
+                      +{leadsNotInFlow.length - 10} mais
+                    </Badge>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Flow Board */}
+          {flowLoading ? (
+            <div className="flex items-center justify-center h-64">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : (
+            <FollowUpFlowBoard
+              steps={flowSteps}
+              leadsInFlow={leadsInFlow}
+              onMoveLeadToStep={handleMoveLeadToStep}
+              onSendFollowUp={handleSendFollowUp}
+              onPauseResume={handlePauseResume}
+              onRemoveFromFlow={handleRemoveFromFlow}
+              onMarkAsWon={handleMarkAsWon}
+              onMarkAsLost={handleMarkAsLost}
+              onAddStep={handleAddStep}
+              onEditStep={handleEditStep}
+              onDeleteStep={handleDeleteStep}
+            />
+          )}
+        </TabsContent>
 
         {/* Configuration Tab */}
         <TabsContent value="config" className="space-y-6 mt-6">
@@ -412,7 +711,7 @@ export default function FollowUpAgentPage({ params }: { params: { id: string } }
                     </div>
                     <Slider
                       value={[watchedValues.temperature]}
-                      onValueChange={([value]) => setValue("temperature", value)}
+                      onValueChange={([value]: number[]) => setValue("temperature", value)}
                       min={0}
                       max={2}
                       step={0.1}
@@ -426,7 +725,7 @@ export default function FollowUpAgentPage({ params }: { params: { id: string } }
                     </div>
                     <Slider
                       value={[watchedValues.maxTokens]}
-                      onValueChange={([value]) => setValue("maxTokens", value)}
+                      onValueChange={([value]: number[]) => setValue("maxTokens", value)}
                       min={50}
                       max={4000}
                       step={50}
@@ -487,7 +786,7 @@ export default function FollowUpAgentPage({ params }: { params: { id: string } }
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Clock className="h-5 w-5" />
-                  Automação
+                  Automação Geral
                 </CardTitle>
                 <CardDescription>
                   Configure o comportamento automático do agente
@@ -503,49 +802,8 @@ export default function FollowUpAgentPage({ params }: { params: { id: string } }
                   </div>
                   <Switch
                     checked={watchedValues.autoFollowUp}
-                    onCheckedChange={(checked) => setValue("autoFollowUp", checked)}
+                    onCheckedChange={(checked: boolean) => setValue("autoFollowUp", checked)}
                   />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Intervalo entre Follow-ups</Label>
-                    <Select
-                      value={watchedValues.followUpDelayHours.toString()}
-                      onValueChange={(value) => setValue("followUpDelayHours", parseInt(value))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="6">6 horas</SelectItem>
-                        <SelectItem value="12">12 horas</SelectItem>
-                        <SelectItem value="24">24 horas (1 dia)</SelectItem>
-                        <SelectItem value="48">48 horas (2 dias)</SelectItem>
-                        <SelectItem value="72">72 horas (3 dias)</SelectItem>
-                        <SelectItem value="168">168 horas (1 semana)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label>Máximo de Follow-ups por Lead</Label>
-                    <Select
-                      value={watchedValues.maxFollowUps.toString()}
-                      onValueChange={(value) => setValue("maxFollowUps", parseInt(value))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
-                          <SelectItem key={n} value={n.toString()}>
-                            {n} {n === 1 ? "follow-up" : "follow-ups"}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
                 </div>
 
                 <div className="space-y-3">

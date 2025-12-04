@@ -91,6 +91,71 @@ export interface FollowUpHistory {
   lead?: { name: string; phone?: string; email?: string }
 }
 
+// ========================================
+// FOLLOW-UP FLOW TYPES
+// ========================================
+
+export interface FollowUpFlowStep {
+  id: string
+  funnelId: string
+  name: string
+  order: number
+  delayDays: number
+  delayHours: number
+  messageTemplate?: string
+  isAutomatic: boolean
+  color: string
+  type: 'followup' | 'won' | 'lost'
+  createdAt: string
+  updatedAt: string
+}
+
+export interface LeadInFollowUpFlow {
+  id: string
+  leadId: string
+  funnelId: string
+  currentStepId: string
+  nextFollowUpAt?: string
+  followUpCount: number
+  status: 'active' | 'paused' | 'completed' | 'lost'
+  enteredAt: string
+  lastFollowUpAt?: string
+  createdAt: string
+  updatedAt: string
+  lead: FunnelLead
+  currentStep?: FollowUpFlowStep
+}
+
+export interface CreateFollowUpStepRequest {
+  name: string
+  order: number
+  delayDays: number
+  delayHours: number
+  messageTemplate?: string
+  isAutomatic?: boolean
+  color?: string
+  type?: 'followup' | 'won' | 'lost'
+}
+
+export interface UpdateFollowUpStepRequest {
+  name?: string
+  order?: number
+  delayDays?: number
+  delayHours?: number
+  messageTemplate?: string
+  isAutomatic?: boolean
+  color?: string
+}
+
+export interface AddLeadToFlowRequest {
+  leadId: string
+  stepId?: string
+}
+
+export interface MoveLeadInFlowRequest {
+  stepId: string
+}
+
 export interface Funnel {
   id: string
   userId: string
@@ -377,6 +442,88 @@ class FunnelService {
 
     const endpoint = `/${funnelId}/follow-up-history${queryString.toString() ? `?${queryString.toString()}` : ''}`
     return this.makeRequest<{ history: FollowUpHistory[]; pagination: any }>(endpoint)
+  }
+
+  // ========================================
+  // FOLLOW-UP FLOW ENDPOINTS
+  // ========================================
+
+  async getFollowUpFlowSteps(funnelId: string): Promise<ApiResponse<FollowUpFlowStep[]>> {
+    return this.makeRequest<FollowUpFlowStep[]>(`/${funnelId}/follow-up-flow/steps`)
+  }
+
+  async createFollowUpFlowStep(funnelId: string, data: CreateFollowUpStepRequest): Promise<ApiResponse<FollowUpFlowStep>> {
+    return this.makeRequest<FollowUpFlowStep>(`/${funnelId}/follow-up-flow/steps`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateFollowUpFlowStep(stepId: string, data: UpdateFollowUpStepRequest): Promise<ApiResponse<FollowUpFlowStep>> {
+    return this.makeRequest<FollowUpFlowStep>(`/follow-up-flow/steps/${stepId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteFollowUpFlowStep(stepId: string): Promise<ApiResponse<void>> {
+    return this.makeRequest<void>(`/follow-up-flow/steps/${stepId}`, {
+      method: 'DELETE',
+    })
+  }
+
+  async getLeadsInFlow(funnelId: string): Promise<ApiResponse<LeadInFollowUpFlow[]>> {
+    return this.makeRequest<LeadInFollowUpFlow[]>(`/${funnelId}/follow-up-flow/leads`)
+  }
+
+  async addLeadToFlow(funnelId: string, data: AddLeadToFlowRequest): Promise<ApiResponse<LeadInFollowUpFlow>> {
+    return this.makeRequest<LeadInFollowUpFlow>(`/${funnelId}/follow-up-flow/leads`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async moveLeadInFlow(leadFlowId: string, data: MoveLeadInFlowRequest): Promise<ApiResponse<LeadInFollowUpFlow>> {
+    return this.makeRequest<LeadInFollowUpFlow>(`/follow-up-flow/leads/${leadFlowId}/move`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async pauseResumeLeadInFlow(leadFlowId: string): Promise<ApiResponse<LeadInFollowUpFlow>> {
+    return this.makeRequest<LeadInFollowUpFlow>(`/follow-up-flow/leads/${leadFlowId}/toggle-pause`, {
+      method: 'PATCH',
+    })
+  }
+
+  async removeLeadFromFlow(leadFlowId: string): Promise<ApiResponse<void>> {
+    return this.makeRequest<void>(`/follow-up-flow/leads/${leadFlowId}`, {
+      method: 'DELETE',
+    })
+  }
+
+  async sendFollowUpInFlow(leadFlowId: string): Promise<ApiResponse<FollowUpHistory>> {
+    return this.makeRequest<FollowUpHistory>(`/follow-up-flow/leads/${leadFlowId}/send`, {
+      method: 'POST',
+    })
+  }
+
+  async markLeadAsWonInFlow(leadFlowId: string): Promise<ApiResponse<LeadInFollowUpFlow>> {
+    return this.makeRequest<LeadInFollowUpFlow>(`/follow-up-flow/leads/${leadFlowId}/won`, {
+      method: 'PATCH',
+    })
+  }
+
+  async markLeadAsLostInFlow(leadFlowId: string): Promise<ApiResponse<LeadInFollowUpFlow>> {
+    return this.makeRequest<LeadInFollowUpFlow>(`/follow-up-flow/leads/${leadFlowId}/lost`, {
+      method: 'PATCH',
+    })
+  }
+
+  async initializeDefaultFlowSteps(funnelId: string): Promise<ApiResponse<FollowUpFlowStep[]>> {
+    return this.makeRequest<FollowUpFlowStep[]>(`/${funnelId}/follow-up-flow/initialize`, {
+      method: 'POST',
+    })
   }
 }
 

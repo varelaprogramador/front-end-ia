@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState, memo } from "react"
+import { useEffect, useRef, useState, memo, useMemo } from "react"
 import { draggable, dropTargetForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter"
 import { combine } from "@atlaskit/pragmatic-drag-and-drop/combine"
 import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter"
@@ -27,7 +27,8 @@ import {
   XCircle,
   Edit2,
   Trash2,
-  MessageSquare
+  MessageSquare,
+  Clock
 } from "lucide-react"
 import { ActionMenu } from "@/components/ui/action-menu"
 import type { FunnelStage, FunnelLead } from "@/lib/funnel-api"
@@ -66,6 +67,25 @@ interface StageColumnProps {
 }
 
 type DragState = 'idle' | 'dragging' | 'over'
+
+// ========================================
+// UTILITIES
+// ========================================
+
+function formatRelativeDate(dateString: string | Date | undefined): string {
+  if (!dateString) return ""
+
+  const date = new Date(dateString)
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+
+  if (diffDays === 0) return "Hoje"
+  if (diffDays === 1) return "Ontem"
+  if (diffDays < 7) return `${diffDays} dias atrás`
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)} sem. atrás`
+  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
+}
 
 // ========================================
 // LEAD CARD COMPONENT
@@ -113,11 +133,28 @@ const LeadCard = memo(function LeadCard({ lead, onEdit, onDelete, onSendFollowUp
     )
   }, [lead.id, lead.stageId])
 
-  const priorityColors = {
-    low: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-    medium: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
-    high: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+  const priorityConfig = {
+    low: {
+      bg: 'bg-blue-50 dark:bg-blue-900/20',
+      text: 'text-blue-600 dark:text-blue-400',
+      border: 'border-blue-200 dark:border-blue-800',
+      label: 'Baixa'
+    },
+    medium: {
+      bg: 'bg-amber-50 dark:bg-amber-900/20',
+      text: 'text-amber-600 dark:text-amber-400',
+      border: 'border-amber-200 dark:border-amber-800',
+      label: 'Média'
+    },
+    high: {
+      bg: 'bg-red-50 dark:bg-red-900/20',
+      text: 'text-red-600 dark:text-red-400',
+      border: 'border-red-200 dark:border-red-800',
+      label: 'Alta'
+    },
   }
+
+  const priority = priorityConfig[lead.priority]
 
   const menuItems = [
     {
@@ -143,28 +180,33 @@ const LeadCard = memo(function LeadCard({ lead, onEdit, onDelete, onSendFollowUp
   ]
 
   return (
-    <div className="relative">
+    <div className="relative group">
       {closestEdge === 'top' && <DropIndicator edge="top" />}
       <div
         ref={ref}
         className={cn(
-          "bg-card border rounded-lg p-3 cursor-grab active:cursor-grabbing transition-all",
-          "hover:shadow-md hover:border-primary/30",
-          dragState === 'dragging' && "opacity-50 shadow-lg scale-105",
-          dragState === 'over' && "ring-2 ring-primary/50"
+          "bg-card border rounded-xl p-3 cursor-grab active:cursor-grabbing",
+          "transition-all duration-200 ease-out",
+          "hover:shadow-md hover:border-primary/30 hover:-translate-y-0.5",
+          "group-hover:shadow-md",
+          dragState === 'dragging' && "opacity-50 shadow-xl scale-[1.02] rotate-1",
+          dragState === 'over' && "ring-2 ring-primary/50 bg-primary/5"
         )}
       >
+        {/* Header */}
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2 flex-1 min-w-0">
-            <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-            <div className="min-w-0">
-              <h4 className="font-medium text-sm truncate">{lead.name}</h4>
-              {lead.email && (
-                <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-                  <Mail className="h-3 w-3" />
-                  <span className="truncate">{lead.email}</span>
-                </div>
-              )}
+            <GripVertical className="h-4 w-4 text-muted-foreground/50 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div className="min-w-0 flex-1">
+              <h4 className="font-semibold text-sm truncate leading-tight">{lead.name}</h4>
+              <div className="flex items-center gap-2 mt-1">
+                {lead.email && (
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Mail className="h-3 w-3" />
+                    <span className="truncate max-w-[120px]">{lead.email}</span>
+                  </div>
+                )}
+              </div>
               {lead.phone && (
                 <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
                   <Phone className="h-3 w-3" />
@@ -176,7 +218,11 @@ const LeadCard = memo(function LeadCard({ lead, onEdit, onDelete, onSendFollowUp
 
           <ActionMenu
             trigger={
-              <Button variant="ghost" size="icon" className="h-6 w-6">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+              >
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             }
@@ -184,29 +230,55 @@ const LeadCard = memo(function LeadCard({ lead, onEdit, onDelete, onSendFollowUp
           />
         </div>
 
-        <div className="flex items-center justify-between mt-3">
-          {lead.value && lead.value > 0 ? (
-            <div className="flex items-center gap-1 text-xs font-medium text-green-600 dark:text-green-400">
-              <DollarSign className="h-3 w-3" />
-              {lead.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-            </div>
-          ) : (
-            <div />
-          )}
-          <Badge variant="secondary" className={cn("text-xs", priorityColors[lead.priority])}>
-            {lead.priority === 'high' ? 'Alta' : lead.priority === 'medium' ? 'Média' : 'Baixa'}
-          </Badge>
+        {/* Footer */}
+        <div className="flex items-center justify-between mt-3 pt-2 border-t border-border/50">
+          <div className="flex items-center gap-2">
+            {lead.value && lead.value > 0 ? (
+              <div className="flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                <DollarSign className="h-3 w-3" />
+                {lead.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+              </div>
+            ) : null}
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            {lead.createdAt && (
+              <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                <Clock className="h-2.5 w-2.5" />
+                {formatRelativeDate(lead.createdAt)}
+              </span>
+            )}
+            <Badge
+              variant="secondary"
+              className={cn(
+                "text-[10px] px-1.5 py-0 h-5 font-medium",
+                priority.bg,
+                priority.text,
+                priority.border
+              )}
+            >
+              {priority.label}
+            </Badge>
+          </div>
         </div>
 
+        {/* Tags */}
         {lead.tags && lead.tags.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-2">
             {lead.tags.slice(0, 3).map((tag, i) => (
-              <Badge key={i} variant="outline" className="text-xs px-1.5 py-0">
+              <Badge
+                key={i}
+                variant="outline"
+                className="text-[10px] px-1.5 py-0 h-4 bg-muted/50"
+              >
                 {tag}
               </Badge>
             ))}
             {lead.tags.length > 3 && (
-              <Badge variant="outline" className="text-xs px-1.5 py-0">
+              <Badge
+                variant="outline"
+                className="text-[10px] px-1.5 py-0 h-4 bg-muted/50"
+              >
                 +{lead.tags.length - 3}
               </Badge>
             )}
@@ -251,7 +323,10 @@ const StageColumn = memo(function StageColumn({
 
   const isWon = stage.fixedType === 'won'
   const isLost = stage.fixedType === 'lost'
-  const totalValue = leads.reduce((sum, lead) => sum + (lead.value || 0), 0)
+  const totalValue = useMemo(() =>
+    leads.reduce((sum, lead) => sum + (lead.value || 0), 0),
+    [leads]
+  )
 
   const stageMenuItems = [
     {
@@ -271,8 +346,9 @@ const StageColumn = memo(function StageColumn({
     <div
       ref={ref}
       className={cn(
-        "flex-shrink-0 w-80 bg-muted/30 rounded-xl flex flex-col transition-all",
-        isDragOver && "ring-2 ring-primary/50 bg-primary/5"
+        "flex-shrink-0 w-80 bg-muted/30 rounded-xl flex flex-col",
+        "transition-all duration-200 ease-out",
+        isDragOver && "ring-2 ring-primary/50 bg-primary/5 scale-[1.01]"
       )}
     >
       {/* Header */}
@@ -281,10 +357,16 @@ const StageColumn = memo(function StageColumn({
         style={{ borderLeftColor: stage.color, borderLeftWidth: 4 }}
       >
         <div className="flex items-center gap-2">
-          {isWon && <Trophy className="h-4 w-4 text-green-500" />}
+          {isWon && <Trophy className="h-4 w-4 text-emerald-500" />}
           {isLost && <XCircle className="h-4 w-4 text-red-500" />}
           <h3 className="font-semibold text-sm">{stage.name}</h3>
-          <Badge variant="secondary" className="text-xs">
+          <Badge
+            variant="secondary"
+            className={cn(
+              "text-xs font-medium",
+              leads.length > 0 ? "bg-primary/10 text-primary" : ""
+            )}
+          >
             {leads.length}
           </Badge>
         </div>
@@ -300,7 +382,12 @@ const StageColumn = memo(function StageColumn({
               items={stageMenuItems}
             />
           )}
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onAddLead}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 hover:bg-primary/10 hover:text-primary"
+            onClick={onAddLead}
+          >
             <Plus className="h-4 w-4" />
           </Button>
         </div>
@@ -308,14 +395,14 @@ const StageColumn = memo(function StageColumn({
 
       {/* Value Summary */}
       {totalValue > 0 && (
-        <div className="px-3 py-2 bg-muted/50 text-xs text-muted-foreground flex items-center gap-1">
-          <DollarSign className="h-3 w-3" />
+        <div className="px-3 py-2 bg-gradient-to-r from-emerald-50 to-transparent dark:from-emerald-900/20 text-xs font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+          <DollarSign className="h-3.5 w-3.5" />
           Total: {totalValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
         </div>
       )}
 
       {/* Leads Container */}
-      <div className="flex-1 p-2 space-y-2 overflow-y-auto max-h-[calc(100vh-280px)] min-h-[200px]">
+      <div className="flex-1 p-2 space-y-2 overflow-y-auto max-h-[calc(100vh-280px)] min-h-[200px] scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent">
         {leads.map((lead) => (
           <LeadCard
             key={lead.id}
@@ -327,16 +414,22 @@ const StageColumn = memo(function StageColumn({
         ))}
 
         {leads.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-32 text-muted-foreground text-sm">
-            <User className="h-8 w-8 mb-2 opacity-50" />
-            <p>Nenhum lead</p>
+          <div
+            className={cn(
+              "flex flex-col items-center justify-center h-32 rounded-lg border-2 border-dashed",
+              "text-muted-foreground text-sm transition-colors",
+              isDragOver ? "border-primary bg-primary/5" : "border-muted-foreground/20"
+            )}
+          >
+            <User className="h-8 w-8 mb-2 opacity-40" />
+            <p className="font-medium">Nenhum lead</p>
             <Button
               variant="link"
               size="sm"
-              className="mt-1"
+              className="mt-1 h-auto p-0"
               onClick={onAddLead}
             >
-              Adicionar lead
+              + Adicionar lead
             </Button>
           </div>
         )}
@@ -360,11 +453,14 @@ export function KanbanBoard({
   onSendFollowUp
 }: KanbanBoardProps) {
   // Sort stages: custom stages by order, then fixed stages at the end
-  const sortedStages = [...stages].sort((a, b) => {
-    if (a.isFixed && !b.isFixed) return 1
-    if (!a.isFixed && b.isFixed) return -1
-    return a.order - b.order
-  })
+  const sortedStages = useMemo(() =>
+    [...stages].sort((a, b) => {
+      if (a.isFixed && !b.isFixed) return 1
+      if (!a.isFixed && b.isFixed) return -1
+      return a.order - b.order
+    }),
+    [stages]
+  )
 
   // Monitor for drag and drop
   useEffect(() => {
@@ -423,7 +519,7 @@ export function KanbanBoard({
   }, [stages, onMoveLead])
 
   return (
-    <div className="flex gap-4 overflow-x-auto pb-4 px-1">
+    <div className="flex gap-4 overflow-x-auto pb-4 px-1 -mx-1">
       {sortedStages.map((stage) => (
         <StageColumn
           key={stage.id}
