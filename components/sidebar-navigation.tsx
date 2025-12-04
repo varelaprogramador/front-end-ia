@@ -27,6 +27,7 @@ import {
   User,
   FileText,
   Key,
+  Workflow,
 } from "lucide-react"
 
 export function SidebarNavigation() {
@@ -135,6 +136,12 @@ export function SidebarNavigation() {
       href: "/workspace",
       icon: Home,
       description: "Visão geral dos agentes",
+    },
+    {
+      title: "Funil de Vendas",
+      href: "/funil",
+      icon: Workflow,
+      description: "Gerenciar leads e pipeline",
     },
     {
       title: "Perfil",
