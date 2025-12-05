@@ -464,33 +464,64 @@ export default function FollowUpAgentPage({ params }: { params: { id: string } }
     }
   }
 
+  const [addingLeadId, setAddingLeadId] = useState<string | null>(null)
+
   const handleAddLeadToFlow = async (leadId: string) => {
+    setAddingLeadId(leadId)
     try {
       // Initialize flow if not yet created
       if (flowSteps.every(s => s.id.startsWith('temp-'))) {
-        await funnelService.initializeDefaultFlowSteps(funnelId)
-        await loadFlowData()
+        console.log("Initializing flow steps...")
+        const initResponse = await funnelService.initializeDefaultFlowSteps(funnelId)
+        console.log("Init response:", initResponse)
+
+        if (!initResponse.success) {
+          throw new Error(initResponse.error || "Erro ao inicializar fluxo")
+        }
+
         // After initialization, retry adding the lead
         const freshSteps = await funnelService.getFollowUpFlowSteps(funnelId)
+        console.log("Fresh steps:", freshSteps)
+
         if (freshSteps.data && freshSteps.data.length > 0) {
           const firstStep = freshSteps.data.find(s => s.type === 'followup' && s.order === 0)
-          await funnelService.addLeadToFlow(funnelId, {
+          console.log("First step:", firstStep)
+
+          const addResponse = await funnelService.addLeadToFlow(funnelId, {
             leadId,
             stepId: firstStep?.id,
           })
+          console.log("Add response:", addResponse)
+
+          if (!addResponse.success) {
+            throw new Error(addResponse.error || "Erro ao adicionar lead")
+          }
         }
       } else {
         const firstStep = flowSteps.find(s => s.type === 'followup' && s.order === 0)
-        await funnelService.addLeadToFlow(funnelId, {
+        console.log("Using existing first step:", firstStep)
+
+        const addResponse = await funnelService.addLeadToFlow(funnelId, {
           leadId,
           stepId: firstStep?.id,
         })
+        console.log("Add response:", addResponse)
+
+        if (!addResponse.success) {
+          throw new Error(addResponse.error || "Erro ao adicionar lead")
+        }
       }
       await loadFlowData()
       toast({ title: "Lead adicionado ao fluxo!" })
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error adding lead to flow:", error)
-      toast({ title: "Erro ao adicionar lead", variant: "destructive" })
+      toast({
+        title: "Erro ao adicionar lead",
+        description: error?.message || "Verifique o console para mais detalhes",
+        variant: "destructive"
+      })
+    } finally {
+      setAddingLeadId(null)
     }
   }
 
@@ -591,9 +622,14 @@ export default function FollowUpAgentPage({ params }: { params: { id: string } }
                       variant="outline"
                       size="sm"
                       onClick={() => handleAddLeadToFlow(lead.id)}
+                      disabled={addingLeadId === lead.id}
                       className="gap-1"
                     >
-                      <Plus className="h-3 w-3" />
+                      {addingLeadId === lead.id ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Plus className="h-3 w-3" />
+                      )}
                       {lead.name}
                     </Button>
                   ))}
