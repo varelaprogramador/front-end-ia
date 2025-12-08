@@ -34,6 +34,7 @@ import {
   type CreateLeadRequest,
   type CreateStageRequest,
 } from "@/lib/funnel-api"
+import { evolutionInstanceService } from "@/lib/evolution-instance-api"
 import { KanbanBoard } from "@/components/funnel/kanban-board"
 import { LeadDialog } from "@/components/funnel/lead-dialog"
 import { StageDialog } from "@/components/funnel/stage-dialog"
@@ -58,6 +59,9 @@ export default function FunilPage() {
   const [defaultStageId, setDefaultStageId] = useState<string>("")
   const [showStageDialog, setShowStageDialog] = useState(false)
   const [editingStage, setEditingStage] = useState<FunnelStage | null>(null)
+
+  // Evolution Instance for WhatsApp integration
+  const [evolutionInstanceId, setEvolutionInstanceId] = useState<string | undefined>(undefined)
 
   // Load funnels
   const loadFunnels = async (showRefreshLoader = false, selectNewFunnel = false) => {
@@ -116,9 +120,32 @@ export default function FunilPage() {
     }
   }
 
+  // Load first connected Evolution instance for WhatsApp contact search
+  const loadEvolutionInstance = async () => {
+    if (!userId) return
+    try {
+      const response = await evolutionInstanceService.getInstancesByUser(userId)
+      // API returns { success, instances, count } not { success, data }
+      const instances = (response as any).instances || response.data || []
+
+      if (response.success && instances.length > 0) {
+        // Find first connected instance
+        const connectedInstance = instances.find(
+          (instance: any) => instance.connectionState === "CONNECTED"
+        )
+        if (connectedInstance) {
+          setEvolutionInstanceId(connectedInstance.id)
+        }
+      }
+    } catch (error) {
+      console.error("Error loading Evolution instance:", error)
+    }
+  }
+
   useEffect(() => {
     if (userId) {
       loadFunnels()
+      loadEvolutionInstance()
     }
   }, [userId])
 
@@ -513,6 +540,7 @@ export default function FunilPage() {
         lead={editingLead}
         stages={selectedFunnel?.stages || []}
         defaultStageId={defaultStageId}
+        evolutionInstanceId={evolutionInstanceId}
         onSave={handleSaveLead}
       />
 

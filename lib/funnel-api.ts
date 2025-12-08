@@ -40,11 +40,62 @@ export interface FunnelLead {
   priority: 'low' | 'medium' | 'high'
   expectedCloseDate?: string
   lastContactAt?: string
+  isInFollowUpFlow?: boolean // Se está no fluxo de follow-up (removido do Kanban principal)
+  // Integração com WhatsApp
+  whatsappJid?: string // JID do contato no WhatsApp
+  whatsappProfileName?: string // Nome do perfil no WhatsApp
+  whatsappProfilePic?: string // URL da foto do perfil
+  evolutionInstanceId?: string // ID da instância Evolution vinculada
   order: number
   createdAt: string
   updatedAt: string
   stage?: FunnelStage
   _count?: { followUps: number }
+}
+
+// ========================================
+// EVOLUTION API INTEGRATION TYPES
+// ========================================
+
+export interface WhatsAppContact {
+  id: string
+  remoteJid: string
+  pushName: string
+  profilePictureUrl?: string
+  phoneNumber: string
+}
+
+export interface WhatsAppChat {
+  id: string
+  remoteJid: string
+  pushName: string
+  profilePictureUrl?: string
+  phoneNumber: string
+  lastMessageAt?: string
+  unreadCount: number
+}
+
+export interface WhatsAppMessage {
+  id: string
+  remoteJid?: string
+  fromMe: boolean
+  pushName?: string
+  message: string
+  messageType: string
+  timestamp: string
+  status?: string
+  sender?: string
+}
+
+export interface WhatsAppHistoryResponse {
+  lead: {
+    id: string
+    name: string
+    whatsappJid: string
+  }
+  messages: WhatsAppMessage[]
+  total: number
+  conversationContext: string // Ready for AI consumption
 }
 
 export interface FollowUpAgent {
@@ -156,6 +207,43 @@ export interface MoveLeadInFlowRequest {
   stepId: string
 }
 
+// Histórico de contatos no fluxo
+export interface FollowUpFlowContact {
+  id: string
+  leadId: string
+  leadFlowId: string
+  stepId: string
+  contactType: 'message' | 'call' | 'email' | 'whatsapp' | 'manual'
+  message?: string
+  response?: string
+  status: 'sent' | 'delivered' | 'read' | 'replied' | 'failed'
+  isAutomatic: boolean
+  outcome?: 'positive' | 'negative' | 'neutral' | 'no_response'
+  notes?: string
+  contactedAt: string
+  respondedAt?: string
+  createdAt: string
+  step?: { name: string; color: string }
+}
+
+export interface CreateContactRequest {
+  contactType?: 'message' | 'call' | 'email' | 'whatsapp' | 'manual'
+  message?: string
+  response?: string
+  status?: 'sent' | 'delivered' | 'read' | 'replied' | 'failed'
+  isAutomatic?: boolean
+  outcome?: 'positive' | 'negative' | 'neutral' | 'no_response'
+  notes?: string
+  moveToNextStep?: boolean
+}
+
+export interface UpdateContactRequest {
+  response?: string
+  status?: string
+  outcome?: string
+  notes?: string
+}
+
 export interface Funnel {
   id: string
   userId: string
@@ -214,6 +302,11 @@ export interface CreateLeadRequest {
   priority?: 'low' | 'medium' | 'high'
   expectedCloseDate?: string
   order?: number
+  // Integração com WhatsApp
+  whatsappJid?: string
+  whatsappProfileName?: string
+  whatsappProfilePic?: string
+  evolutionInstanceId?: string
 }
 
 export interface UpdateLeadRequest {
@@ -524,6 +617,51 @@ class FunnelService {
     return this.makeRequest<FollowUpFlowStep[]>(`/${funnelId}/follow-up-flow/initialize`, {
       method: 'POST',
     })
+  }
+
+  // ========================================
+  // FOLLOW-UP FLOW CONTACTS ENDPOINTS
+  // ========================================
+
+  async getFlowContacts(leadFlowId: string): Promise<ApiResponse<FollowUpFlowContact[]>> {
+    return this.makeRequest<FollowUpFlowContact[]>(`/follow-up-flow/leads/${leadFlowId}/contacts`)
+  }
+
+  async createFlowContact(leadFlowId: string, data: CreateContactRequest): Promise<ApiResponse<FollowUpFlowContact>> {
+    return this.makeRequest<FollowUpFlowContact>(`/follow-up-flow/leads/${leadFlowId}/contacts`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateFlowContact(contactId: string, data: UpdateContactRequest): Promise<ApiResponse<FollowUpFlowContact>> {
+    return this.makeRequest<FollowUpFlowContact>(`/follow-up-flow/contacts/${contactId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    })
+  }
+
+  // ========================================
+  // EVOLUTION API INTEGRATION ENDPOINTS
+  // ========================================
+
+  async getEvolutionContacts(instanceId: string, search?: string): Promise<ApiResponse<WhatsAppContact[]>> {
+    const queryString = search ? `?search=${encodeURIComponent(search)}` : ''
+    return this.makeRequest<WhatsAppContact[]>(`/evolution/${instanceId}/contacts${queryString}`)
+  }
+
+  async getEvolutionChats(instanceId: string): Promise<ApiResponse<WhatsAppChat[]>> {
+    return this.makeRequest<WhatsAppChat[]>(`/evolution/${instanceId}/chats`)
+  }
+
+  async getEvolutionMessages(instanceId: string, remoteJid: string, limit?: number): Promise<ApiResponse<{ messages: WhatsAppMessage[]; remoteJid: string; total: number }>> {
+    const queryString = limit ? `?limit=${limit}` : ''
+    return this.makeRequest<{ messages: WhatsAppMessage[]; remoteJid: string; total: number }>(`/evolution/${instanceId}/messages/${encodeURIComponent(remoteJid)}${queryString}`)
+  }
+
+  async getLeadWhatsAppHistory(leadId: string, limit?: number): Promise<ApiResponse<WhatsAppHistoryResponse>> {
+    const queryString = limit ? `?limit=${limit}` : ''
+    return this.makeRequest<WhatsAppHistoryResponse>(`/lead/${leadId}/whatsapp-history${queryString}`)
   }
 }
 

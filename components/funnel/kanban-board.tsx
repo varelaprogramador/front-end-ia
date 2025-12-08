@@ -453,12 +453,19 @@ export function KanbanBoard({
   onSendFollowUp
 }: KanbanBoardProps) {
   // Sort stages: custom stages by order, then fixed stages at the end
+  // Also filter out leads that are in the follow-up flow
   const sortedStages = useMemo(() =>
-    [...stages].sort((a, b) => {
-      if (a.isFixed && !b.isFixed) return 1
-      if (!a.isFixed && b.isFixed) return -1
-      return a.order - b.order
-    }),
+    [...stages]
+      .sort((a, b) => {
+        if (a.isFixed && !b.isFixed) return 1
+        if (!a.isFixed && b.isFixed) return -1
+        return a.order - b.order
+      })
+      .map(stage => ({
+        ...stage,
+        // Filter out leads that are in follow-up flow (they appear in the follow-up Kanban)
+        leads: (stage.leads || []).filter(lead => !lead.isInFollowUpFlow)
+      })),
     [stages]
   )
 
