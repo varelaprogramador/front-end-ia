@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useUser } from "@clerk/nextjs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -72,6 +73,9 @@ const credentialTypeColors: Record<CredentialType, string> = {
 };
 
 export default function CredenciaisPage() {
+  const { user } = useUser();
+  const userId = user?.id;
+
   const [credentials, setCredentials] = useState<Credential[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -83,13 +87,16 @@ export default function CredenciaisPage() {
   const [resendingId, setResendingId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchCredentials();
-  }, []);
+    if (userId) {
+      fetchCredentials();
+    }
+  }, [userId]);
 
   const fetchCredentials = async () => {
+    if (!userId) return;
     try {
       const { getCredentials } = await import("@/lib/credentials-api");
-      const data = await getCredentials();
+      const data = await getCredentials(userId);
       setCredentials(data);
     } catch (error) {
       toast.error("Erro ao carregar credenciais");
@@ -118,7 +125,7 @@ export default function CredenciaisPage() {
 
     try {
       const { deleteCredential } = await import("@/lib/credentials-api");
-      await deleteCredential(credentialToDelete);
+      await deleteCredential(credentialToDelete, userId);
       toast.success("Credencial deletada com sucesso");
       fetchCredentials();
     } catch (error) {
@@ -137,7 +144,7 @@ export default function CredenciaisPage() {
     setResendingId(credential.id);
     try {
       const { resendCredential } = await import("@/lib/credentials-api");
-      await resendCredential(credential.id);
+      await resendCredential(credential.id, userId);
       toast.success("Credencial reenviada para N8N com sucesso");
       fetchCredentials();
     } catch (error) {
@@ -395,6 +402,7 @@ export default function CredenciaisPage() {
             </DialogHeader>
             <CredentialForm
               credential={selectedCredential}
+              userId={userId || ""}
               onSuccess={handleFormSuccess}
               onCancel={() => setIsFormOpen(false)}
             />

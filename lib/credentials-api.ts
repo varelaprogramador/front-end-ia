@@ -8,19 +8,13 @@ import {
 
 const API_URL = `${API_BASE_URL}/credentials`;
 
-// Helper function to get auth headers
-async function getAuthHeaders() {
-  return {
-    "Content-Type": "application/json",
-  };
-}
-
 // GET /credentials - Listar todas as credenciais
-export async function getCredentials(): Promise<Credential[]> {
-  const response = await fetch(API_URL, {
+export async function getCredentials(userId: string): Promise<Credential[]> {
+  const response = await fetch(`${API_URL}?userId=${userId}`, {
     method: "GET",
-    headers: await getAuthHeaders(),
-    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
   });
 
   if (!response.ok) {
@@ -32,11 +26,13 @@ export async function getCredentials(): Promise<Credential[]> {
 }
 
 // GET /credentials/:id - Buscar credencial específica
-export async function getCredential(id: string): Promise<Credential> {
-  const response = await fetch(`${API_URL}/${id}`, {
+export async function getCredential(id: string, userId?: string): Promise<Credential> {
+  const url = userId ? `${API_URL}/${id}?userId=${userId}` : `${API_URL}/${id}`;
+  const response = await fetch(url, {
     method: "GET",
-    headers: await getAuthHeaders(),
-    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
   });
 
   if (!response.ok) {
@@ -52,12 +48,13 @@ export async function getCredential(id: string): Promise<Credential> {
 
 // POST /credentials - Criar nova credencial
 export async function createCredential(
-  data: CreateCredentialDto
+  data: CreateCredentialDto & { userId: string }
 ): Promise<Credential> {
   const response = await fetch(API_URL, {
     method: "POST",
-    headers: await getAuthHeaders(),
-    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify(data),
   });
 
@@ -76,12 +73,13 @@ export async function createCredential(
 // PUT /credentials/:id - Atualizar credencial
 export async function updateCredential(
   id: string,
-  data: UpdateCredentialDto
+  data: UpdateCredentialDto & { userId?: string }
 ): Promise<Credential> {
   const response = await fetch(`${API_URL}/${id}`, {
     method: "PUT",
-    headers: await getAuthHeaders(),
-    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify(data),
   });
 
@@ -98,11 +96,13 @@ export async function updateCredential(
 }
 
 // DELETE /credentials/:id - Deletar credencial
-export async function deleteCredential(id: string): Promise<void> {
-  const response = await fetch(`${API_URL}/${id}`, {
+export async function deleteCredential(id: string, userId?: string): Promise<void> {
+  const url = userId ? `${API_URL}/${id}?userId=${userId}` : `${API_URL}/${id}`;
+  const response = await fetch(url, {
     method: "DELETE",
-    headers: await getAuthHeaders(),
-    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
   });
 
   if (!response.ok) {
@@ -113,12 +113,15 @@ export async function deleteCredential(id: string): Promise<void> {
 
 // POST /credentials/:id/test - Testar credencial
 export async function testCredential(
-  id: string
+  id: string,
+  userId?: string
 ): Promise<TestCredentialResponse> {
   const response = await fetch(`${API_URL}/${id}/test`, {
     method: "POST",
-    headers: await getAuthHeaders(),
-    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ userId }),
   });
 
   if (!response.ok) {
@@ -134,11 +137,13 @@ export async function testCredential(
 }
 
 // POST /credentials/:id/resend - Reenviar credencial para N8N
-export async function resendCredential(id: string): Promise<any> {
+export async function resendCredential(id: string, userId?: string): Promise<any> {
   const response = await fetch(`${API_URL}/${id}/resend`, {
     method: "POST",
-    headers: await getAuthHeaders(),
-    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ userId }),
   });
 
   const result = await response.json();

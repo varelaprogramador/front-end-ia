@@ -25,6 +25,7 @@ import { useTheme } from "next-themes";
 
 interface CredentialFormProps {
   credential?: Credential | null;
+  userId: string;
   onSuccess: () => void;
   onCancel: () => void;
 }
@@ -38,7 +39,7 @@ const credentialTypes: { value: CredentialType; label: string; icon: any }[] = [
 
 const httpMethods = ["GET", "POST", "PUT", "PATCH", "DELETE"];
 
-export function CredentialForm({ credential, onSuccess, onCancel }: CredentialFormProps) {
+export function CredentialForm({ credential, userId, onSuccess, onCancel }: CredentialFormProps) {
   const [loading, setLoading] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [viewMode, setViewMode] = useState<'form' | 'json'>('form');
@@ -233,10 +234,10 @@ export function CredentialForm({ credential, onSuccess, onCancel }: CredentialFo
       const { createCredential, updateCredential } = await import("@/lib/credentials-api");
 
       if (credential) {
-        await updateCredential(credential.id, payload);
+        await updateCredential(credential.id, { ...payload, userId });
         toast.success("Credencial atualizada com sucesso");
       } else {
-        await createCredential(payload);
+        await createCredential({ ...payload, userId });
         toast.success("Credencial criada com sucesso");
       }
 
