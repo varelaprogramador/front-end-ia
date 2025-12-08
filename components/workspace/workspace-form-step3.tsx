@@ -63,12 +63,15 @@ export default function WorkspaceFormStep3({
   const [errorInfo, setErrorInfo] = useState<{ type: string; message: string; details: string } | null>(null);
 
   useEffect(() => {
-    fetchCredentials();
-  }, []);
+    if (userId) {
+      fetchCredentials();
+    }
+  }, [userId]);
 
   const fetchCredentials = async () => {
+    if (!userId) return;
     try {
-      const data = await getCredentials();
+      const data = await getCredentials(userId);
       // Filtrar apenas credenciais ativas
       setCredentials(data.filter((c) => c.isActive));
     } catch (error) {
