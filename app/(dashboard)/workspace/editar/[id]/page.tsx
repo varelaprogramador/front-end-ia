@@ -19,11 +19,15 @@ interface WorkspaceFormData {
   prompt: string;
   description: string;
 
-  // Step 2: Integração Kommo
+  // Step 2: Integrações CRM
   kommoEnabled: boolean;
   kommoSubdomain: string;
   kommoAccessToken: string;
   kommodPipelineId: string;
+  rdstationEnabled: boolean;
+  rdstationClientId: string;
+  rdstationClientSecret: string;
+  rdstationCode: string;
 
   // Não usado na edição, mas necessário para compatibilidade
   selectedCredentials: string[];
@@ -37,8 +41,8 @@ const steps = [
   },
   {
     id: 2,
-    name: "Integração Kommo",
-    description: "Configurar integração com Kommo CRM (opcional)"
+    name: "Integrações CRM",
+    description: "Configurar integrações com Kommo e RD Station (opcional)"
   },
 ];
 
@@ -59,11 +63,16 @@ export default function EditarWorkspacePage() {
     prompt: "",
     description: "",
 
-    // Step 2
+    // Step 2 - Kommo
     kommoEnabled: false,
     kommoSubdomain: "",
     kommoAccessToken: "",
     kommodPipelineId: "",
+    // Step 2 - RD Station
+    rdstationEnabled: false,
+    rdstationClientId: "",
+    rdstationClientSecret: "",
+    rdstationCode: "",
 
     // Não usado na edição
     selectedCredentials: [],
@@ -88,6 +97,10 @@ export default function EditarWorkspacePage() {
             kommoSubdomain: agent.kommoSubdomain || "",
             kommoAccessToken: agent.kommoAccessToken || "",
             kommodPipelineId: agent.kommodPipelineId || "",
+            rdstationEnabled: !!(agent.rdstationClientId || agent.rdstationClientSecret),
+            rdstationClientId: agent.rdstationClientId || "",
+            rdstationClientSecret: agent.rdstationClientSecret || "",
+            rdstationCode: agent.rdstationCode || "",
             selectedCredentials: agent.credentialIds || [],
           });
         } else {
@@ -133,6 +146,16 @@ export default function EditarWorkspacePage() {
         return false;
       }
     }
+    if (formData.rdstationEnabled) {
+      if (!formData.rdstationClientId.trim()) {
+        toast.error("Client ID é obrigatório quando a integração RD Station está ativada");
+        return false;
+      }
+      if (!formData.rdstationClientSecret.trim()) {
+        toast.error("Client Secret é obrigatório quando a integração RD Station está ativada");
+        return false;
+      }
+    }
     return true;
   };
 
@@ -165,6 +188,9 @@ export default function EditarWorkspacePage() {
         kommoSubdomain: formData.kommoEnabled ? formData.kommoSubdomain : undefined,
         kommoAccessToken: formData.kommoEnabled ? formData.kommoAccessToken : undefined,
         kommodPipelineId: formData.kommoEnabled ? formData.kommodPipelineId : undefined,
+        rdstationClientId: formData.rdstationEnabled ? formData.rdstationClientId : undefined,
+        rdstationClientSecret: formData.rdstationEnabled ? formData.rdstationClientSecret : undefined,
+        rdstationCode: formData.rdstationEnabled ? formData.rdstationCode : undefined,
       };
 
       const result = await updateAgent(workspaceId, updateData);

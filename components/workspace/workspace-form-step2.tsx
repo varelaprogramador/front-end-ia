@@ -19,6 +19,10 @@ interface WorkspaceFormData {
   kommoSubdomain: string;
   kommoAccessToken: string;
   kommodPipelineId: string;
+  rdstationEnabled: boolean;
+  rdstationClientId: string;
+  rdstationClientSecret: string;
+  rdstationCode: string;
   selectedCredentials: string[];
 }
 
@@ -53,6 +57,8 @@ export default function WorkspaceFormStep2({ formData, updateFormData }: Workspa
   const [isVerifying, setIsVerifying] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
   const [pipelines, setPipelines] = useState<KommoPipeline[]>([]);
+  const [isVerifyingRdstation, setIsVerifyingRdstation] = useState(false);
+  const [isRdstationVerified, setIsRdstationVerified] = useState(false);
 
   // Verificar credenciais automaticamente se já existem dados
   useEffect(() => {
@@ -60,6 +66,20 @@ export default function WorkspaceFormStep2({ formData, updateFormData }: Workspa
       handleVerifyKommo();
     }
   }, []);
+
+  // Listener para receber código de autorização do RD Station via postMessage
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'RDSTATION_AUTH_CODE' && event.data?.code) {
+        updateFormData({ rdstationCode: event.data.code });
+        setIsRdstationVerified(true);
+        toast.success("Código de autorização obtido com sucesso!");
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [updateFormData]);
 
   const handleVerifyKommo = async () => {
     if (!formData.kommoSubdomain || !formData.kommoAccessToken) {
@@ -289,18 +309,152 @@ export default function WorkspaceFormStep2({ formData, updateFormData }: Workspa
         </div>
       )}
 
-      {/* Informações sobre a integração */}
+      {/* Separador entre integrações */}
+      <div className="border-t my-8" />
+
+      {/* RD Station Section */}
+      <div>
+        <h3 className="text-lg font-medium">Integração RD Station</h3>
+        <p className="text-sm text-muted-foreground mt-1">
+          Configure a integração com RD Station Marketing (opcional)
+        </p>
+      </div>
+
+      {/* Toggle para ativar/desativar integração RD Station */}
+      <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+        <div className="space-y-0.5">
+          <Label htmlFor="rdstation-enabled" className="text-base">
+            Ativar Integração RD Station
+          </Label>
+          <p className="text-sm text-muted-foreground">
+            Conecte este workspace ao RD Station Marketing
+          </p>
+        </div>
+        <Switch
+          id="rdstation-enabled"
+          checked={formData.rdstationEnabled}
+          onCheckedChange={(checked) => {
+            updateFormData({ rdstationEnabled: checked });
+            if (!checked) {
+              // Limpar dados se desativado
+              updateFormData({
+                rdstationClientId: "",
+                rdstationClientSecret: "",
+                rdstationCode: "",
+              });
+              setIsRdstationVerified(false);
+            }
+          }}
+        />
+      </div>
+
+      {/* Campos de configuração RD Station (aparecem apenas se ativado) */}
+      {formData.rdstationEnabled && (
+        <div className="space-y-4 pl-4 border-l-2 border-orange-200 dark:border-orange-800">
+          <div className="space-y-2">
+            <Label htmlFor="rdstationClientId">
+              Client ID <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="rdstationClientId"
+              value={formData.rdstationClientId}
+              onChange={(e) => {
+                updateFormData({ rdstationClientId: e.target.value });
+                setIsRdstationVerified(false);
+              }}
+              placeholder="Client ID da aplicação RD Station"
+              disabled={isVerifyingRdstation}
+            />
+            <p className="text-xs text-muted-foreground">
+              O Client ID da sua aplicação criada no RD Station
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="rdstationClientSecret">
+              Client Secret <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="rdstationClientSecret"
+              type="password"
+              value={formData.rdstationClientSecret}
+              onChange={(e) => {
+                updateFormData({ rdstationClientSecret: e.target.value });
+                setIsRdstationVerified(false);
+              }}
+              placeholder="Client Secret da aplicação RD Station"
+              disabled={isVerifyingRdstation}
+            />
+            <p className="text-xs text-muted-foreground">
+              O Client Secret gerado ao criar a aplicação no RD Station
+            </p>
+          </div>
+
+          <Button
+            type="button"
+            variant={formData.rdstationCode ? "outline" : "default"}
+            onClick={() => {
+              if (!formData.rdstationClientId) {
+                toast.error("Preencha o Client ID primeiro");
+                return;
+              }
+              // URL de autorização do RD Station
+              const redirectUri = encodeURIComponent(`${window.location.origin}/api/rdstation/callback`);
+              const authUrl = `https://api.rd.services/auth/dialog?client_id=${formData.rdstationClientId}&redirect_uri=${redirectUri}`;
+              window.open(authUrl, "_blank", "width=600,height=700");
+              toast.info("Uma nova janela foi aberta para autorização", {
+                description: "Após autorizar, o código será preenchido automaticamente.",
+              });
+            }}
+            disabled={!formData.rdstationClientId || !formData.rdstationClientSecret}
+            className="w-full gap-2"
+          >
+            {formData.rdstationCode ? (
+              <>
+                <CheckCircle className="h-4 w-4 text-green-500" />
+                Código de Autorização Obtido
+              </>
+            ) : (
+              <>
+                <AlertCircle className="h-4 w-4" />
+                Gerar Código de Autorização
+              </>
+            )}
+          </Button>
+
+          {formData.rdstationCode && (
+            <div className="rounded-lg bg-green-50 dark:bg-green-950/30 p-3 border border-green-200 dark:border-green-800">
+              <p className="text-xs text-green-800 dark:text-green-200">
+                <strong>Código obtido!</strong> O access token será gerado automaticamente ao criar o workspace.
+              </p>
+            </div>
+          )}
+
+          <div className="rounded-lg bg-orange-50 dark:bg-orange-950/30 p-3 border border-orange-200 dark:border-orange-800">
+            <p className="text-xs text-orange-800 dark:text-orange-200">
+              <strong>Nota:</strong> Clique no botão acima para autorizar a integração com sua conta RD Station.
+              O código de autorização será usado para gerar os tokens de acesso automaticamente.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Informações sobre as integrações */}
       <div className="rounded-lg bg-blue-50 dark:bg-blue-950 p-4 border border-blue-200 dark:border-blue-800">
         <div className="flex items-start gap-3">
           <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
           <div>
             <h3 className="text-sm font-medium text-blue-900 dark:text-blue-100">
-              {formData.kommoEnabled ? "Sobre a Integração" : "Integração Opcional"}
+              {formData.kommoEnabled || formData.rdstationEnabled ? "Sobre as Integrações" : "Integrações Opcionais"}
             </h3>
             <p className="mt-1 text-sm text-blue-700 dark:text-blue-300">
-              {formData.kommoEnabled
+              {formData.kommoEnabled && formData.rdstationEnabled
+                ? "O workspace terá acesso ao Kommo CRM e RD Station Marketing simultaneamente."
+                : formData.kommoEnabled
                 ? "O workspace terá acesso aos leads e negociações do pipeline selecionado no Kommo CRM."
-                : "A integração com Kommo CRM é opcional. Você pode configurá-la agora ou adicionar depois."}
+                : formData.rdstationEnabled
+                ? "O workspace terá acesso aos leads e eventos de conversão do RD Station Marketing."
+                : "As integrações com CRM são opcionais. Você pode configurá-las agora ou adicionar depois."}
             </p>
           </div>
         </div>

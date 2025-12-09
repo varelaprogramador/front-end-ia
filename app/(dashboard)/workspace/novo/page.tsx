@@ -22,11 +22,15 @@ interface WorkspaceFormData {
   prompt: string;
   description: string;
 
-  // Step 2: Integração Kommo
+  // Step 2: Integrações CRM
   kommoEnabled: boolean;
   kommoSubdomain: string;
   kommoAccessToken: string;
   kommodPipelineId: string;
+  rdstationEnabled: boolean;
+  rdstationClientId: string;
+  rdstationClientSecret: string;
+  rdstationCode: string;
 
   // Step 3: Credenciais
   selectedCredentials: string[];
@@ -40,8 +44,8 @@ const steps = [
   },
   {
     id: 2,
-    name: "Integração Kommo",
-    description: "Configurar integração com Kommo CRM (opcional)"
+    name: "Integrações CRM",
+    description: "Configurar integrações com Kommo e RD Station (opcional)"
   },
   {
     id: 3,
@@ -64,11 +68,16 @@ export default function NovoWorkspacePage() {
     prompt: "",
     description: "",
 
-    // Step 2
+    // Step 2 - Kommo
     kommoEnabled: false,
     kommoSubdomain: "",
     kommoAccessToken: "",
     kommodPipelineId: "",
+    // Step 2 - RD Station
+    rdstationEnabled: false,
+    rdstationClientId: "",
+    rdstationClientSecret: "",
+    rdstationCode: "",
 
     // Step 3
     selectedCredentials: [],
@@ -98,6 +107,16 @@ export default function NovoWorkspacePage() {
       }
       if (!formData.kommoAccessToken.trim()) {
         toast.error("Access Token Kommo é obrigatório quando a integração está ativada");
+        return false;
+      }
+    }
+    if (formData.rdstationEnabled) {
+      if (!formData.rdstationClientId.trim()) {
+        toast.error("Client ID é obrigatório quando a integração RD Station está ativada");
+        return false;
+      }
+      if (!formData.rdstationClientSecret.trim()) {
+        toast.error("Client Secret é obrigatório quando a integração RD Station está ativada");
         return false;
       }
     }
@@ -139,6 +158,9 @@ export default function NovoWorkspacePage() {
         kommoSubdomain: formData.kommoEnabled ? formData.kommoSubdomain : undefined,
         kommoAccessToken: formData.kommoEnabled ? formData.kommoAccessToken : undefined,
         kommodPipelineId: formData.kommoEnabled ? formData.kommodPipelineId : undefined,
+        rdstationClientId: formData.rdstationEnabled ? formData.rdstationClientId : undefined,
+        rdstationClientSecret: formData.rdstationEnabled ? formData.rdstationClientSecret : undefined,
+        rdstationCode: formData.rdstationEnabled ? formData.rdstationCode : undefined,
         credentialIds: formData.selectedCredentials,
       };
 

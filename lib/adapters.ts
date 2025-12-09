@@ -19,6 +19,12 @@ export interface Agent {
   kommoSubdomain?: string
   kommoAccessToken?: string
   kommodPipelineId?: string
+  // Campos de integração com RD Station
+  rdstationClientId?: string
+  rdstationClientSecret?: string
+  rdstationAccessToken?: string
+  rdstationRefreshToken?: string
+  rdstationCode?: string
   // Credenciais vinculadas
   credentialIds?: string[]
 }
@@ -42,6 +48,12 @@ export const configIAToAgent = (config: ConfigIA): Agent => {
     kommoSubdomain: config.kommoSubdomain || undefined,
     kommoAccessToken: config.kommoAccessToken || undefined,
     kommodPipelineId: config.kommodPipelineId || undefined,
+    // Campos RD Station
+    rdstationClientId: config.rdstationClientId || undefined,
+    rdstationClientSecret: config.rdstationClientSecret || undefined,
+    rdstationAccessToken: config.rdstationAccessToken || undefined,
+    rdstationRefreshToken: config.rdstationRefreshToken || undefined,
+    rdstationCode: config.rdstationCode || undefined,
     // Credenciais
     credentialIds: (config as any).credentialIds || [],
   }
@@ -59,6 +71,11 @@ export const agentToCreateConfigIA = (agent: Omit<Agent, 'id' | 'createdAt' | 't
     kommoSubdomain: agent.kommoSubdomain || undefined,
     kommoAccessToken: agent.kommoAccessToken || undefined,
     kommodPipelineId: agent.kommodPipelineId || undefined,
+    rdstationClientId: agent.rdstationClientId || undefined,
+    rdstationClientSecret: agent.rdstationClientSecret || undefined,
+    rdstationAccessToken: agent.rdstationAccessToken || undefined,
+    rdstationRefreshToken: agent.rdstationRefreshToken || undefined,
+    rdstationCode: agent.rdstationCode || undefined,
     credentialIds: agent.credentialIds || [],
   }
 }
@@ -75,6 +92,11 @@ export const agentToUpdateConfigIA = (agent: Partial<Agent>) => {
   if (agent.kommoSubdomain !== undefined) updateData.kommoSubdomain = agent.kommoSubdomain || undefined
   if (agent.kommoAccessToken !== undefined) updateData.kommoAccessToken = agent.kommoAccessToken || undefined
   if (agent.kommodPipelineId !== undefined) updateData.kommodPipelineId = agent.kommodPipelineId || undefined
+  if (agent.rdstationClientId !== undefined) updateData.rdstationClientId = agent.rdstationClientId || undefined
+  if (agent.rdstationClientSecret !== undefined) updateData.rdstationClientSecret = agent.rdstationClientSecret || undefined
+  if (agent.rdstationAccessToken !== undefined) updateData.rdstationAccessToken = agent.rdstationAccessToken || undefined
+  if (agent.rdstationRefreshToken !== undefined) updateData.rdstationRefreshToken = agent.rdstationRefreshToken || undefined
+  if (agent.rdstationCode !== undefined) updateData.rdstationCode = agent.rdstationCode || undefined
   if (agent.credentialIds !== undefined) updateData.credentialIds = agent.credentialIds
 
   return updateData

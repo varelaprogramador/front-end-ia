@@ -24,6 +24,12 @@ export interface ConfigIA {
   kommoSubdomain?: string;
   kommoAccessToken?: string;
   kommodPipelineId?: string;
+  // Campos de integração com RD Station
+  rdstationClientId?: string;
+  rdstationClientSecret?: string;
+  rdstationAccessToken?: string;
+  rdstationRefreshToken?: string;
+  rdstationCode?: string;
   createdAt: string;
   updatedAt: string;
   evolutionInstances?: EvolutionInstanceSummary[];
@@ -73,6 +79,11 @@ export interface CreateConfigIARequest {
   kommoSubdomain?: string;
   kommoAccessToken?: string;
   kommodPipelineId?: string;
+  rdstationClientId?: string;
+  rdstationClientSecret?: string;
+  rdstationAccessToken?: string;
+  rdstationRefreshToken?: string;
+  rdstationCode?: string;
 }
 
 export interface UpdateConfigIARequest {
@@ -84,6 +95,11 @@ export interface UpdateConfigIARequest {
   kommoSubdomain?: string;
   kommoAccessToken?: string;
   kommodPipelineId?: string;
+  rdstationClientId?: string;
+  rdstationClientSecret?: string;
+  rdstationAccessToken?: string;
+  rdstationRefreshToken?: string;
+  rdstationCode?: string;
 }
 
 export interface QueryParams {
