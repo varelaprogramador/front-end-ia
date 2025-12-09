@@ -66,6 +66,19 @@ export function CredentialForm({ credential, userId, onSuccess, onCancel }: Cred
     clientSecret: "",
   });
 
+  // Modelo de sucesso padrão para respostas do N8N
+  const defaultSuccessModel = [
+    {
+      name: "{{ $json.name }}",
+      type: "{{ $json.type }}",
+      nodesAccess: [],
+      id: "{{ $json.id }}",
+      updatedAt: "{{ $json.updatedAt }}",
+      createdAt: "{{ $json.createdAt }}",
+      isManaged: false
+    }
+  ];
+
   const [formData, setFormData] = useState({
     name: credential?.name || "",
     type: credential?.type || "CHATGPT" as CredentialType,
@@ -74,8 +87,8 @@ export function CredentialForm({ credential, userId, onSuccess, onCancel }: Cred
     authHeaderKey: credential?.authHeaderKey || "X-N8N-API-KEY",
     authHeaderValue: credential?.authHeaderValue || "",
     customHeaders: JSON.stringify(credential?.customHeaders || {}, null, 2),
-    awaitResponse: credential?.awaitResponse || false,
-    successModel: JSON.stringify(credential?.successModel || {}, null, 2),
+    awaitResponse: credential?.awaitResponse ?? true, // Ativado por padrão
+    successModel: JSON.stringify(credential?.successModel || defaultSuccessModel, null, 2),
     data: JSON.stringify(credential?.data || {}, null, 2),
     isActive: credential?.isActive ?? true,
   });
