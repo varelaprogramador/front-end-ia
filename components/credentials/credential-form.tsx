@@ -249,12 +249,17 @@ export function CredentialForm({ credential, userId, onSuccess, onCancel }: Cred
         toast.success("Credencial atualizada com sucesso");
       } else {
         await createCredential({ ...payload, userId });
-        toast.success("Credencial criada com sucesso");
+        toast.success("Credencial criada e validada com sucesso!");
       }
 
       onSuccess();
-    } catch (error) {
-      toast.error("Erro ao salvar credencial");
+    } catch (error: any) {
+      // Extrair mensagem de erro do backend
+      const errorMessage = error?.response?.data?.error
+        || error?.message
+        || "Erro ao salvar credencial";
+
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -1019,7 +1024,7 @@ export function CredentialForm({ credential, userId, onSuccess, onCancel }: Cred
           {loading ? (
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              {credential ? "Atualizando..." : "Criando credencial..."}
+              {credential ? "Atualizando..." : "Validando e criando..."}
             </>
           ) : credential ? (
             "Atualizar"
