@@ -155,7 +155,7 @@ export default function FunilPage() {
   }
 
   // Handle create/edit funnel
-  const handleSaveFunnel = async (data: { name: string; description?: string; isActive: boolean }) => {
+  const handleSaveFunnel = async (data: { name: string; description?: string; isActive: boolean; configIaId?: string | null }) => {
     try {
       if (editingFunnel) {
         await funnelService.updateFunnel(editingFunnel.id, data)
@@ -370,6 +370,12 @@ export default function FunilPage() {
                       {!funnel.isActive && (
                         <Badge variant="secondary" className="text-xs">Inativo</Badge>
                       )}
+                      {funnel.configIa && (
+                        <Badge variant="outline" className="text-xs gap-1">
+                          <Bot className="h-3 w-3" />
+                          {funnel.configIa.nome}
+                        </Badge>
+                      )}
                     </div>
                   </SelectItem>
                 ))}
@@ -531,6 +537,7 @@ export default function FunilPage() {
         open={showFunnelDialog}
         onOpenChange={setShowFunnelDialog}
         funnel={editingFunnel}
+        userId={userId}
         onSave={handleSaveFunnel}
       />
 

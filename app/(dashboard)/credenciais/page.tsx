@@ -52,24 +52,24 @@ import { TestCredentialDialog } from "@/components/credentials/test-credential-d
 import { ResendCredentialDialog } from "@/components/credentials/resend-credential-dialog";
 
 const credentialTypeLabels: Record<CredentialType, string> = {
-  GOOGLE_CALENDAR: "Google Calendar",
   CHATGPT: "ChatGPT",
-  N8N: "N8N",
-  CUSTOM: "Personalizada",
+  GOOGLE_CALENDAR: "Google Calendar",
+  N8N: "N8N", // Mantido para compatibilidade com credenciais existentes
+  CUSTOM: "Personalizada", // Mantido para compatibilidade com credenciais existentes
 };
 
 const credentialTypeIcons: Record<CredentialType, any> = {
-  GOOGLE_CALENDAR: Calendar,
   CHATGPT: MessageSquare,
-  N8N: Workflow,
-  CUSTOM: Key,
+  GOOGLE_CALENDAR: Calendar,
+  N8N: Workflow, // Mantido para compatibilidade com credenciais existentes
+  CUSTOM: Key, // Mantido para compatibilidade com credenciais existentes
 };
 
 const credentialTypeColors: Record<CredentialType, string> = {
-  GOOGLE_CALENDAR: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
   CHATGPT: "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20",
-  N8N: "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20",
-  CUSTOM: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20",
+  GOOGLE_CALENDAR: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
+  N8N: "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20", // Mantido para compatibilidade
+  CUSTOM: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20", // Mantido para compatibilidade
 };
 
 export default function CredenciaisPage() {

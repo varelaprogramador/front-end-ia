@@ -252,6 +252,9 @@ export interface Funnel {
   isActive: boolean
   createdAt: string
   updatedAt: string
+  // Vinculação com Agente/Workspace
+  configIaId?: string | null
+  configIa?: { id: string; nome: string; status: string } | null
   stages?: FunnelStage[]
   leads?: FunnelLead[]
   followUpAgent?: FollowUpAgent | { id: string; isActive: boolean; name: string }
@@ -269,12 +272,14 @@ export interface CreateFunnelRequest {
   name: string
   description?: string
   isActive?: boolean
+  configIaId?: string | null // Vinculação com Agente/Workspace
 }
 
 export interface UpdateFunnelRequest {
   name?: string
   description?: string
   isActive?: boolean
+  configIaId?: string | null // Vinculação com Agente/Workspace
 }
 
 export interface CreateStageRequest {

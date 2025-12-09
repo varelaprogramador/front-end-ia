@@ -17,7 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Credential, CredentialType } from "@/types/credential";
-import { Calendar, MessageSquare, Workflow, Key, Eye, EyeOff } from "lucide-react";
+import { Calendar, MessageSquare, Eye, EyeOff, Loader2 } from "lucide-react";
 import JSONPretty from "react-json-pretty";
 import "react-json-pretty/themes/monikai.css";
 import Editor from "@monaco-editor/react";
@@ -31,10 +31,8 @@ interface CredentialFormProps {
 }
 
 const credentialTypes: { value: CredentialType; label: string; icon: any }[] = [
-  { value: "GOOGLE_CALENDAR", label: "Google Calendar", icon: Calendar },
   { value: "CHATGPT", label: "ChatGPT", icon: MessageSquare },
-  { value: "N8N", label: "N8N", icon: Workflow },
-  { value: "CUSTOM", label: "Personalizada", icon: Key },
+  { value: "GOOGLE_CALENDAR", label: "Google Calendar", icon: Calendar },
 ];
 
 const httpMethods = ["GET", "POST", "PUT", "PATCH", "DELETE"];
@@ -70,7 +68,7 @@ export function CredentialForm({ credential, userId, onSuccess, onCancel }: Cred
 
   const [formData, setFormData] = useState({
     name: credential?.name || "",
-    type: credential?.type || "CUSTOM" as CredentialType,
+    type: credential?.type || "CHATGPT" as CredentialType,
     url: credential?.url || "",
     method: credential?.method || "POST",
     authHeaderKey: credential?.authHeaderKey || "X-N8N-API-KEY",
@@ -1001,11 +999,20 @@ export function CredentialForm({ credential, userId, onSuccess, onCancel }: Cred
 
       {/* Botões */}
       <div className="flex justify-end gap-3">
-        <Button type="button" variant="outline" onClick={onCancel}>
+        <Button type="button" variant="outline" onClick={onCancel} disabled={loading}>
           Cancelar
         </Button>
         <Button type="submit" disabled={loading}>
-          {loading ? "Salvando..." : credential ? "Atualizar" : "Criar Credencial"}
+          {loading ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              {credential ? "Atualizando..." : "Criando credencial..."}
+            </>
+          ) : credential ? (
+            "Atualizar"
+          ) : (
+            "Criar Credencial"
+          )}
         </Button>
       </div>
     </form>
