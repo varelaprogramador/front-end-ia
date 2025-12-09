@@ -314,9 +314,9 @@ export default function WorkspaceFormStep2({ formData, updateFormData }: Workspa
 
       {/* RD Station Section */}
       <div>
-        <h3 className="text-lg font-medium">Integração RD Station</h3>
+        <h3 className="text-lg font-medium">Integração RD Station CRM</h3>
         <p className="text-sm text-muted-foreground mt-1">
-          Configure a integração com RD Station Marketing (opcional)
+          Configure a integração com RD Station CRM (opcional)
         </p>
       </div>
 
@@ -324,10 +324,10 @@ export default function WorkspaceFormStep2({ formData, updateFormData }: Workspa
       <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
         <div className="space-y-0.5">
           <Label htmlFor="rdstation-enabled" className="text-base">
-            Ativar Integração RD Station
+            Ativar Integração RD Station CRM
           </Label>
           <p className="text-sm text-muted-foreground">
-            Conecte este workspace ao RD Station Marketing
+            Conecte este workspace ao RD Station CRM
           </p>
         </div>
         <Switch
@@ -398,12 +398,13 @@ export default function WorkspaceFormStep2({ formData, updateFormData }: Workspa
                 toast.error("Preencha o Client ID primeiro");
                 return;
               }
-              // URL de autorização do RD Station
-              const redirectUri = encodeURIComponent(`${window.location.origin}/api/rdstation/callback`);
-              const authUrl = `https://api.rd.services/auth/dialog?client_id=${formData.rdstationClientId}&redirect_uri=${redirectUri}`;
+              // URL de autorização do RD Station CRM v2
+              // Documentação: https://developers.rdstation.com/reference/crm-v2-authentication-step-2
+              const redirectUri = encodeURIComponent(`${process.env.NEXT_PUBLIC_API_URL}/oauth/rdstation/callback`);
+              const authUrl = `https://accounts.rdstation.com/oauth/authorize?response_type=code&client_id=${formData.rdstationClientId}&redirect_uri=${redirectUri}`;
               window.open(authUrl, "_blank", "width=600,height=700");
               toast.info("Uma nova janela foi aberta para autorização", {
-                description: "Após autorizar, o código será preenchido automaticamente.",
+                description: "Após autorizar, você será redirecionado automaticamente.",
               });
             }}
             disabled={!formData.rdstationClientId || !formData.rdstationClientSecret}
@@ -449,11 +450,11 @@ export default function WorkspaceFormStep2({ formData, updateFormData }: Workspa
             </h3>
             <p className="mt-1 text-sm text-blue-700 dark:text-blue-300">
               {formData.kommoEnabled && formData.rdstationEnabled
-                ? "O workspace terá acesso ao Kommo CRM e RD Station Marketing simultaneamente."
+                ? "O workspace terá acesso ao Kommo CRM e RD Station CRM simultaneamente."
                 : formData.kommoEnabled
                 ? "O workspace terá acesso aos leads e negociações do pipeline selecionado no Kommo CRM."
                 : formData.rdstationEnabled
-                ? "O workspace terá acesso aos leads e eventos de conversão do RD Station Marketing."
+                ? "O workspace terá acesso aos leads e negociações do RD Station CRM."
                 : "As integrações com CRM são opcionais. Você pode configurá-las agora ou adicionar depois."}
             </p>
           </div>
