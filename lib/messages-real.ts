@@ -16,80 +16,57 @@ export interface Message {
   instanceName?: string
 }
 
-// Palavras-chave para detectar agendamentos
-const APPOINTMENT_KEYWORDS = [
-  // Confirmações diretas
-  'agendado', 'agendamento', 'marcado', 'confirmado', 'confirmação',
-  'reunião marcada', 'consulta marcada', 'horário confirmado',
-  'reservado', 'reserva confirmada', 'compromisso',
-  
-  // Expressões de confirmação
-  'perfeito', 'ótimo', 'certo', 'combinado', 'fechado', 'beleza',
-  'vou anotar', 'está marcado', 'anote aí', 'anotado', 'ok',
-  
-  // Frases de confirmação
-  'então fica', 'então vamos', 'pode ser', 'está bom', 'tá bom',
-  'confirmo', 'pode confirmar', 'vou confirmar', 'confirmando',
-  'pode marcar', 'vou marcar', 'agendando', 'marcando',
-  
-  // Horários e datas
-  'às ', ' às ', 'na ', ' na ', 'dia ', 'hoje', 'amanhã',
-  'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo',
-  'manhã', 'tarde', 'noite', 'madrugada',
-  
-  // Contexto de agendamento
-  'reunião', 'consulta', 'encontro', 'visita', 'atendimento',
-  'demonstração', 'apresentação', 'meeting', 'call', 'ligação'
+// Palavras-chave FORTES para detectar agendamentos confirmados
+// Reduzi para evitar falsos positivos
+const APPOINTMENT_CONFIRMATION_KEYWORDS = [
+  // Confirmações explícitas de agendamento
+  'agendado para',
+  'marcado para',
+  'confirmado para',
+  'reunião marcada para',
+  'consulta marcada para',
+  'horário confirmado',
+  'está agendado',
+  'está marcado',
+  'ficou agendado',
+  'vou agendar',
+  'vou marcar',
+  'agendamento confirmado',
+  'reserva confirmada'
 ]
 
-// Padrões que indicam confirmação de agendamento
+// Padrões regex que indicam confirmação de agendamento
 const CONFIRMATION_PATTERNS = [
-  /agendado para/i,
-  /marcado para/i,
-  /confirmado para/i,
-  /então fica/i,
-  /pode confirmar/i,
-  /vou confirmar/i,
-  /está confirmado/i,
-  /reunião confirmada/i,
-  /horário confirmado/i,
-  /encontro marcado/i,
-  /consulta marcada/i
+  /agendado\s+para\s+.*(dia|segunda|terça|quarta|quinta|sexta|sábado|domingo|\d{1,2}[\/\-]\d{1,2}|\d{1,2}h|\d{1,2}:\d{2})/i,
+  /marcado\s+para\s+.*(dia|segunda|terça|quarta|quinta|sexta|sábado|domingo|\d{1,2}[\/\-]\d{1,2}|\d{1,2}h|\d{1,2}:\d{2})/i,
+  /confirmado\s+para\s+.*(dia|segunda|terça|quarta|quinta|sexta|sábado|domingo|\d{1,2}[\/\-]\d{1,2}|\d{1,2}h|\d{1,2}:\d{2})/i,
+  /consulta\s+(marcada|agendada)\s+para/i,
+  /reunião\s+(marcada|agendada)\s+para/i,
+  /horário\s+confirmado/i,
+  /agendamento\s+confirmado/i,
+  /ficou\s+(agendado|marcado)/i,
+  /vou\s+(agendar|marcar)\s+para/i,
+  /fica\s+(agendado|marcado)\s+então/i
 ]
 
 // Detectar se uma mensagem contém indicadores de agendamento confirmado
+// Esta função é mais restritiva para evitar falsos positivos
 const detectAppointment = (message: string): boolean => {
   const lowerMessage = message.toLowerCase()
-  
-  // Primeiro, verificar padrões de confirmação diretos
-  const hasConfirmationPattern = CONFIRMATION_PATTERNS.some(pattern => 
+
+  // Verificar padrões de confirmação diretos (mais confiáveis)
+  const hasConfirmationPattern = CONFIRMATION_PATTERNS.some(pattern =>
     pattern.test(lowerMessage)
   )
-  
+
   if (hasConfirmationPattern) return true
-  
-  // Verificar se contém palavras-chave de agendamento
-  const hasKeyword = APPOINTMENT_KEYWORDS.some(keyword => 
+
+  // Verificar se contém palavras-chave de confirmação explícita
+  const hasExplicitKeyword = APPOINTMENT_CONFIRMATION_KEYWORDS.some(keyword =>
     lowerMessage.includes(keyword.toLowerCase())
   )
-  
-  // Padrões regex para horários e datas
-  const timePatterns = [
-    /\d{1,2}:\d{2}/, // 14:30, 9:15
-    /\d{1,2}h\d{0,2}/, // 14h30, 9h, 14h
-    /\d{1,2} ?h ?(\d{2})?/i, // 14h30, 9 h 15, 14h
-    /\d{1,2} horas?/i, // 2 horas, 14 horas
-    /\d{1,2}\/\d{1,2}/, // 15/03, 5/12
-    /\d{1,2}-\d{1,2}/, // 15-03, 5-12
-    /(segunda|terça|quarta|quinta|sexta|sábado|domingo)/i,
-    /(amanhã|hoje|ontem)/i,
-    /(manhã|tarde|noite)/i
-  ]
-  
-  const hasTimePattern = timePatterns.some(pattern => pattern.test(lowerMessage))
-  
-  // Retorna true se tem palavra-chave E padrão de tempo
-  return hasKeyword && hasTimePattern
+
+  return hasExplicitKeyword
 }
 
 // Converter mensagem da API para formato interno
@@ -219,14 +196,17 @@ export const getChartData = async (agentId: string) => {
   })
 
   // Distribuição de tipos de mensagem
-  const inputMessages = messages.filter((msg) => msg.type === "input").length
-  const outputMessages = messages.filter((msg) => msg.type === "output").length
-  const aiMessages = messages.filter((msg) => msg.isAiResponse).length
+  // - Recebidas: mensagens do contato (input/received, não são respostas da IA)
+  // - Enviadas (Manual): mensagens enviadas manualmente pelo operador
+  // - IA: mensagens enviadas automaticamente pela IA
+  const inputMessages = messages.filter((msg) => msg.type === "input" && !msg.isAiResponse).length
+  const manualOutputMessages = messages.filter((msg) => msg.type === "output" && !msg.isAiResponse).length
+  const aiMessages = messages.filter((msg) => msg.isAiResponse === true).length
 
   const messageTypes = [
     { name: "Recebidas", value: inputMessages, fill: "var(--color-chart-1)" },
-    { name: "Enviadas", value: outputMessages, fill: "var(--color-chart-2)" },
-    { name: "IA", value: aiMessages, fill: "var(--color-chart-3)" },
+    { name: "Enviadas (Manual)", value: manualOutputMessages, fill: "var(--color-chart-2)" },
+    { name: "Respostas IA", value: aiMessages, fill: "var(--color-chart-3)" },
   ]
 
   return {

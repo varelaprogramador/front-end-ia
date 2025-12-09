@@ -125,13 +125,31 @@ export function ContactChatInterface({ contactId, agentId }: ContactChatInterfac
     const cleanupNewMessage = onNewMessage((newMessage) => {
       console.log(`📨 [WEBSOCKET] Nova mensagem recebida:`, newMessage)
 
-      // Only add if it's for this contact
-      if (newMessage.chatId === contactId || newMessage.senderId === contactId) {
+      // Extrair o chatId do contactId (remover @s.whatsapp.net se necessário)
+      const normalizedContactId = contactId.split('@')[0]
+      const normalizedChatId = (newMessage.chatId || '').split('@')[0]
+      const normalizedSenderId = (newMessage.senderId || '').split('@')[0]
+
+      // Verificar se a mensagem é para este contato
+      // - Por chatId (formato completo ou normalizado)
+      // - Por senderId (para mensagens recebidas do contato)
+      // - Mensagens da IA com chatId correspondente
+      const isForThisContact =
+        newMessage.chatId === contactId ||
+        normalizedChatId === normalizedContactId ||
+        newMessage.senderId === contactId ||
+        normalizedSenderId === normalizedContactId ||
+        (newMessage.isAiResponse && newMessage.chatId && (newMessage.chatId === contactId || normalizedChatId === normalizedContactId))
+
+      if (isForThisContact) {
         setMessages((prev) => {
           // Check if message already exists (avoid duplicates)
-          const exists = prev.some(msg => msg.messageId === newMessage.messageId || msg.id === newMessage.id)
+          const exists = prev.some(msg =>
+            (msg.messageId && newMessage.messageId && msg.messageId === newMessage.messageId) ||
+            (msg.id && newMessage.id && msg.id === newMessage.id)
+          )
           if (exists) {
-            console.log(`⚠️ [WEBSOCKET] Mensagem duplicada ignorada:`, newMessage.messageId)
+            console.log(`⚠️ [WEBSOCKET] Mensagem duplicada ignorada:`, newMessage.messageId || newMessage.id)
             return prev
           }
 
@@ -142,7 +160,11 @@ export function ContactChatInterface({ contactId, agentId }: ContactChatInterfac
             return dateA - dateB
           })
 
-          console.log(`✅ [WEBSOCKET] Mensagem adicionada. Total: ${updated.length}`)
+          console.log(`✅ [WEBSOCKET] Mensagem adicionada. Total: ${updated.length}`, {
+            isAiResponse: newMessage.isAiResponse,
+            chatId: newMessage.chatId,
+            direction: newMessage.direction
+          })
           return updated
         })
 
@@ -155,12 +177,20 @@ export function ContactChatInterface({ contactId, agentId }: ContactChatInterfac
         } else if (newMessage.isAiResponse) {
           // Notificação discreta para resposta da IA
           toast.success(`IA respondeu`, {
-            description: newMessage.aiResponse?.substring(0, 50) + (newMessage.aiResponse && newMessage.aiResponse.length > 50 ? '...' : ''),
+            description: (newMessage.aiResponse || newMessage.message || '').substring(0, 50) + ((newMessage.aiResponse || newMessage.message || '').length > 50 ? '...' : ''),
             duration: 2000
           })
         }
       } else {
-        console.log(`⏭️ [WEBSOCKET] Mensagem ignorada - não é para este contato (atual: ${contactId}, msg: ${newMessage.chatId || newMessage.senderId})`)
+        console.log(`⏭️ [WEBSOCKET] Mensagem ignorada - não é para este contato`, {
+          contactId,
+          normalizedContactId,
+          msgChatId: newMessage.chatId,
+          normalizedChatId,
+          msgSenderId: newMessage.senderId,
+          normalizedSenderId,
+          isAiResponse: newMessage.isAiResponse
+        })
       }
     })
 
