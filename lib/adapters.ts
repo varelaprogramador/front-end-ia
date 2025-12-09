@@ -30,19 +30,23 @@ export interface Agent {
 }
 
 // Adaptador para converter ConfigIA (backend) para Agent (frontend)
+// Nota: O backend pode retornar dados parciais em algumas operações (ex: updateStatus)
 export const configIAToAgent = (config: ConfigIA): Agent => {
+  // Tratar prompt que pode ser undefined em respostas parciais
+  const prompt = config.prompt || ''
+
   return {
     id: config.id,
     name: config.nome,
     webhookDev: config.webhookUrlDev || '',
     webhookProd: config.webhookUrlProd || '',
-    prompt: config.prompt,
+    prompt: prompt,
     status: config.status === 'ativo' ? 'active' : config.status === 'em desenvolvimento' ? 'development' : 'inactive',
-    createdAt: new Date(config.createdAt),
+    createdAt: config.createdAt ? new Date(config.createdAt) : new Date(),
     totalMessages: config.totalMessages || 0, // Dados reais do backend
     confirmedAppointments: config.confirmedAppointments || 0, // Dados reais do backend
     avatar: undefined, // Será implementado posteriormente
-    description: config.prompt.length > 100 ? config.prompt.substring(0, 100) + '...' : config.prompt, // Descrição baseada no prompt
+    description: prompt.length > 100 ? prompt.substring(0, 100) + '...' : prompt, // Descrição baseada no prompt
     evolutionInstances: config.evolutionInstances || [], // Incluir instâncias Evolution
     // Campos Kommo
     kommoSubdomain: config.kommoSubdomain || undefined,

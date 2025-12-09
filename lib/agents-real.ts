@@ -161,19 +161,29 @@ export const toggleAgentStatus = async (
   try {
     const status = newStatus === "active" ? "ativo" : newStatus === "development" ? "em desenvolvimento" : "inativo";
     console.log(`🔄 Updating agent ${id} status to: ${status}`);
-    
+
     const response = await configIAService.updateStatus(id, status);
     console.log("📦 Status update response:", response);
 
     if (response.success) {
-      // Se não há dados na resposta, buscar o agente atualizado
-      if (!response.data) {
-        console.log("📥 No data in response, fetching updated agent...");
-        const updatedAgent = await getAgentById(id);
+      // Backend pode retornar dados parciais (apenas id, nome, status, userId)
+      // Sempre buscar dados completos do agente após atualização de status
+      console.log("📥 Fetching complete agent data after status update...");
+      const updatedAgent = await getAgentById(id);
+
+      if (updatedAgent) {
+        console.log(`✅ Agent ${updatedAgent.name} fetched with status: ${updatedAgent.status}`);
         return updatedAgent;
       }
-      
-      return configIAToAgent(response.data);
+
+      // Fallback: se não conseguir buscar, tentar usar os dados parciais
+      if (response.data) {
+        console.log("⚠️ Using partial data from response");
+        return configIAToAgent(response.data);
+      }
+
+      console.error("Failed to fetch updated agent data");
+      return null;
     }
 
     console.error("Failed to update agent status:", response.error);
