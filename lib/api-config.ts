@@ -5,11 +5,11 @@ export const MOCK_USER_ID = process.env.NEXT_PUBLIC_MOCK_USER_ID || "user_123";
 
 // Tipos da API baseados no backend
 export interface EvolutionInstanceSummary {
-  id: string
-  instanceName: string
-  displayName: string
-  connectionState: "CONNECTED" | "DISCONNECTED" | "CONNECTING" | "ERROR"
-  status: "active" | "inactive" | "suspended"
+  id: string;
+  instanceName: string;
+  displayName: string;
+  connectionState: "CONNECTED" | "DISCONNECTED" | "CONNECTING" | "ERROR";
+  status: "active" | "inactive" | "suspended";
 }
 
 export interface ConfigIA {
@@ -30,6 +30,7 @@ export interface ConfigIA {
   rdstationAccessToken?: string;
   rdstationRefreshToken?: string;
   rdstationCode?: string;
+  rdstationTokenUpdatedAt?: string;
   createdAt: string;
   updatedAt: string;
   evolutionInstances?: EvolutionInstanceSummary[];
@@ -100,6 +101,7 @@ export interface UpdateConfigIARequest {
   rdstationAccessToken?: string;
   rdstationRefreshToken?: string;
   rdstationCode?: string;
+  rdstationTokenUpdatedAt?: string;
 }
 
 export interface QueryParams {

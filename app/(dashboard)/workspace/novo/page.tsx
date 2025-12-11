@@ -31,6 +31,8 @@ interface WorkspaceFormData {
   rdstationClientId: string;
   rdstationClientSecret: string;
   rdstationCode: string;
+  rdstationAccessToken: string;
+  rdstationRefreshToken: string;
 
   // Step 3: Credenciais
   selectedCredentials: string[];
@@ -78,6 +80,8 @@ export default function NovoWorkspacePage() {
     rdstationClientId: "",
     rdstationClientSecret: "",
     rdstationCode: "",
+    rdstationAccessToken: "",
+    rdstationRefreshToken: "",
 
     // Step 3
     selectedCredentials: [],
@@ -161,6 +165,8 @@ export default function NovoWorkspacePage() {
         rdstationClientId: formData.rdstationEnabled ? formData.rdstationClientId : undefined,
         rdstationClientSecret: formData.rdstationEnabled ? formData.rdstationClientSecret : undefined,
         rdstationCode: formData.rdstationEnabled ? formData.rdstationCode : undefined,
+        rdstationAccessToken: formData.rdstationEnabled ? formData.rdstationAccessToken : undefined,
+        rdstationRefreshToken: formData.rdstationEnabled ? formData.rdstationRefreshToken : undefined,
         credentialIds: formData.selectedCredentials,
       };
 

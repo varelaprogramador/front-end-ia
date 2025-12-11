@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import type { Agent } from "@/lib/agents-real"
-import { BarChart3, MessageSquare, MoreHorizontal, Settings, Trash2, Link as LinkIcon, Power, PhoneOff, Key } from "lucide-react"
+import { BarChart3, MessageSquare, MoreHorizontal, Settings, Trash2, Link as LinkIcon, Power, PhoneOff, Key, RefreshCw, Database, CheckCircle2, AlertCircle } from "lucide-react"
 import Link from "next/link"
 
 interface AgentCardProps {
@@ -16,11 +17,25 @@ interface AgentCardProps {
   onToggleStatus?: (agentId: string, newStatus: "active" | "inactive" | "development") => void
   onManageBlockedNumbers?: (agent: Agent) => void
   onManageCredentials?: (agent: Agent) => void
+  onGenerateRdToken?: (agent: Agent) => void
+  onRefreshRdToken?: (agent: Agent) => void
 }
 
-export function AgentCard({ agent, onDelete, onManageInstances, onToggleStatus, onManageBlockedNumbers, onManageCredentials }: AgentCardProps) {
+export function AgentCard({ agent, onDelete, onManageInstances, onToggleStatus, onManageBlockedNumbers, onManageCredentials, onGenerateRdToken, onRefreshRdToken }: AgentCardProps) {
   const router = useRouter()
   const [showMenu, setShowMenu] = useState(false)
+
+  // Verificar se precisa gerar token do RD Station (tem clientId e clientSecret mas não tem accessToken)
+  const needsRdToken = agent.rdstationClientId && agent.rdstationClientSecret && !agent.rdstationAccessToken
+
+  // Verificar se pode atualizar token do RD Station (já tem accessToken e refreshToken)
+  const canRefreshRdToken = agent.rdstationClientId && agent.rdstationClientSecret && agent.rdstationAccessToken && agent.rdstationRefreshToken
+
+  // Verificar conexões com CRMs
+  const isKommoConnected = !!(agent.kommoSubdomain && agent.kommoAccessToken)
+  const isRdStationConnected = !!(agent.rdstationClientId && agent.rdstationAccessToken)
+  const hasAnyCrmConnection = isKommoConnected || isRdStationConnected
+
   const menuRef = useRef<HTMLDivElement>(null)
   const statusColor = agent.status === "active" ? "bg-green-500" : agent.status === "development" ? "bg-yellow-500" : "bg-gray-400"
   const statusText = agent.status === "active" ? "Ativo" : agent.status === "development" ? "Em Desenvolvimento" : "Inativo"
@@ -50,6 +65,39 @@ export function AgentCard({ agent, onDelete, onManageInstances, onToggleStatus, 
             <CardDescription className="text-pretty">
               Criado em {agent.createdAt.toLocaleDateString("pt-BR")}
             </CardDescription>
+            {/* Indicadores de CRM conectados */}
+            {hasAnyCrmConnection && (
+              <div className="flex items-center gap-1.5 pt-1">
+                <TooltipProvider>
+                  {isKommoConnected && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs font-medium">
+                          <CheckCircle2 className="h-3 w-3" />
+                          Kommo
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Conectado ao Kommo CRM</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                  {isRdStationConnected && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 text-xs font-medium">
+                          <CheckCircle2 className="h-3 w-3" />
+                          RD Station
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Conectado ao RD Station CRM</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                </TooltipProvider>
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <Badge variant="secondary" className="flex items-center gap-1">
@@ -214,6 +262,32 @@ export function AgentCard({ agent, onDelete, onManageInstances, onToggleStatus, 
             <Link href={`/agent/${agent.id}/chat`}>Chat</Link>
           </Button>
         </div>
+
+        {/* Botão para gerar token do RD Station (quando tem clientId/secret mas não tem accessToken) */}
+        {needsRdToken && onGenerateRdToken && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full mt-2 border-orange-300 text-orange-600 hover:bg-orange-50 hover:text-orange-700 dark:border-orange-700 dark:text-orange-400 dark:hover:bg-orange-900/20 dark:hover:text-orange-300"
+            onClick={() => onGenerateRdToken(agent)}
+          >
+            <AlertCircle className="h-4 w-4 mr-2" />
+            Gerar Token RD Station
+          </Button>
+        )}
+
+        {/* Botão para atualizar token do RD Station (quando já tem accessToken) */}
+        {canRefreshRdToken && onRefreshRdToken && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full mt-2 border-green-300 text-green-600 hover:bg-green-50 hover:text-green-700 dark:border-green-700 dark:text-green-400 dark:hover:bg-green-900/20 dark:hover:text-green-300"
+            onClick={() => onRefreshRdToken(agent)}
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Atualizar Token RD Station
+          </Button>
+        )}
       </CardContent>
     </Card>
   )

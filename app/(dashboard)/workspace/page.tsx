@@ -9,13 +9,13 @@ import { AgentForm } from "@/components/agent-form"
 import { ConfigIAInstancesDialog } from "@/components/config-ia-instances-dialog"
 import { DeactivatedAgentsDialog } from "@/components/deactivated-agents-dialog"
 import { ManageCredentialsDialog } from "@/components/manage-credentials-dialog"
+import { RdStationTokenDialog } from "@/components/rdstation-token-dialog"
 import { KPICards } from "@/components/kpi-cards"
 import { getAgents, deleteAgent, toggleAgentStatus, type Agent } from "@/lib/agents-real"
 import { configIAService } from "@/lib/config-ia-api"
 import { Plus, Search, Loader2, RefreshCw } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { useUserId } from "@/lib/use-user-id"
-import type { ConfigIA } from "@/lib/api-config"
 export default function WorkspacePage() {
   const [agents, setAgents] = useState<Agent[]>([])
   const [filteredAgents, setFilteredAgents] = useState<Agent[]>([])
@@ -30,6 +30,9 @@ export default function WorkspacePage() {
   const [selectedAgentForBlocking, setSelectedAgentForBlocking] = useState<Agent | null>(null)
   const [showCredentialsDialog, setShowCredentialsDialog] = useState(false)
   const [selectedAgentForCredentials, setSelectedAgentForCredentials] = useState<Agent | null>(null)
+  const [showRdTokenDialog, setShowRdTokenDialog] = useState(false)
+  const [rdTokenDialogMode, setRdTokenDialogMode] = useState<"generate" | "refresh">("generate")
+  const [selectedAgentForRdToken, setSelectedAgentForRdToken] = useState<Agent | null>(null)
   const { toast } = useToast()
   const userId = useUserId()
 
@@ -283,6 +286,20 @@ export default function WorkspacePage() {
     }
   }
 
+  // Função para abrir dialog de geração de token do RD Station
+  const handleGenerateRdToken = (agent: Agent) => {
+    setSelectedAgentForRdToken(agent)
+    setRdTokenDialogMode("generate")
+    setShowRdTokenDialog(true)
+  }
+
+  // Função para abrir dialog de atualização de token do RD Station
+  const handleRefreshRdToken = (agent: Agent) => {
+    setSelectedAgentForRdToken(agent)
+    setRdTokenDialogMode("refresh")
+    setShowRdTokenDialog(true)
+  }
+
   // Estado de carregamento inicial
   if (loading) {
     return (
@@ -373,6 +390,8 @@ export default function WorkspacePage() {
                 onToggleStatus={handleToggleStatus}
                 onManageBlockedNumbers={handleManageBlockedNumbers}
                 onManageCredentials={handleManageCredentials}
+                onGenerateRdToken={handleGenerateRdToken}
+                onRefreshRdToken={handleRefreshRdToken}
               />
             ))}
           </div>
@@ -417,6 +436,14 @@ export default function WorkspacePage() {
         open={showCredentialsDialog}
         onOpenChange={setShowCredentialsDialog}
         onSuccess={loadAgents}
+      />
+
+      <RdStationTokenDialog
+        agent={selectedAgentForRdToken}
+        open={showRdTokenDialog}
+        onOpenChange={setShowRdTokenDialog}
+        onSuccess={() => loadAgents(true)}
+        mode={rdTokenDialogMode}
       />
     </div>
   )

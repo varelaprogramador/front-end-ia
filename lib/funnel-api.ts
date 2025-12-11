@@ -252,9 +252,17 @@ export interface Funnel {
   isActive: boolean
   createdAt: string
   updatedAt: string
-  // Vinculação com Agente/Workspace
+  // Vinculacao com Agente/Workspace
   configIaId?: string | null
   configIa?: { id: string; nome: string; status: string } | null
+  // Vinculacao com Pipeline do Kommo
+  kommoPipelineId?: string | null
+  kommoPipelineName?: string | null
+  // Vinculacao com Pipeline do RD Station CRM
+  rdstationPipelineId?: string | null
+  rdstationPipelineName?: string | null
+  rdstationOwnerId?: string | null
+  rdstationOwnerName?: string | null
   stages?: FunnelStage[]
   leads?: FunnelLead[]
   followUpAgent?: FollowUpAgent | { id: string; isActive: boolean; name: string }
@@ -267,19 +275,71 @@ export interface Funnel {
   }
 }
 
+// Tipos para stages do CRM
+export interface KommoStageInput {
+  id: number
+  name: string
+  sort: number
+  color: string
+}
+
+export interface RDStationStageInput {
+  id: string
+  name: string
+  nickname?: string
+  order?: number
+}
+
+// Tipo para deals do RD Station
+// Status do RD Station: won (ganho), lost (perdido), ongoing (em andamento)
+export interface RDStationDealInput {
+  id: string
+  name: string
+  recurrence_price?: number
+  one_time_price?: number
+  total_price?: number
+  expected_close_date?: string | null
+  rating?: number
+  status?: "won" | "lost" | "pending" | "ongoing"
+  pipeline_id: string
+  stage_id: string
+  owner_id?: string | null
+  source_id?: string | null
+  organization_id?: string | null
+  contact_ids?: string[]
+  custom_fields?: Record<string, any>
+  created_at?: string
+  updated_at?: string
+}
+
 export interface CreateFunnelRequest {
   userId: string
   name: string
   description?: string
   isActive?: boolean
-  configIaId?: string | null // Vinculação com Agente/Workspace
+  configIaId?: string | null // Vinculacao com Agente/Workspace
+  kommoPipelineId?: string | null
+  kommoPipelineName?: string | null
+  kommoStages?: KommoStageInput[] // Stages do Kommo para criar no funil
+  rdstationPipelineId?: string | null
+  rdstationPipelineName?: string | null
+  rdstationOwnerId?: string | null
+  rdstationOwnerName?: string | null
+  rdstationStages?: RDStationStageInput[] // Stages do RD Station para criar no funil
+  rdstationDeals?: RDStationDealInput[] // Deals do RD Station para criar como leads
 }
 
 export interface UpdateFunnelRequest {
   name?: string
   description?: string
   isActive?: boolean
-  configIaId?: string | null // Vinculação com Agente/Workspace
+  configIaId?: string | null // Vinculacao com Agente/Workspace
+  kommoPipelineId?: string | null
+  kommoPipelineName?: string | null
+  rdstationPipelineId?: string | null
+  rdstationPipelineName?: string | null
+  rdstationOwnerId?: string | null
+  rdstationOwnerName?: string | null
 }
 
 export interface CreateStageRequest {

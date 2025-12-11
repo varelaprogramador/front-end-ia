@@ -39,6 +39,7 @@ import { KanbanBoard } from "@/components/funnel/kanban-board"
 import { LeadDialog } from "@/components/funnel/lead-dialog"
 import { StageDialog } from "@/components/funnel/stage-dialog"
 import { FunnelDialog } from "@/components/funnel/funnel-dialog"
+import { type FunnelFormData } from "@/components/funnel/funnel-form-step1"
 
 export default function FunilPage() {
   const router = useRouter()
@@ -155,14 +156,44 @@ export default function FunilPage() {
   }
 
   // Handle create/edit funnel
-  const handleSaveFunnel = async (data: { name: string; description?: string; isActive: boolean; configIaId?: string | null }) => {
+  const handleSaveFunnel = async (data: FunnelFormData) => {
     try {
       if (editingFunnel) {
-        await funnelService.updateFunnel(editingFunnel.id, data)
+        // Para update, não enviamos os stages (já foram criados na criação)
+        const updateData = {
+          name: data.name,
+          description: data.description,
+          isActive: data.isActive,
+          configIaId: data.configIaId,
+          kommoPipelineId: data.kommoPipelineId,
+          kommoPipelineName: data.kommoPipelineName,
+          rdstationPipelineId: data.rdstationPipelineId,
+          rdstationPipelineName: data.rdstationPipelineName,
+          rdstationOwnerId: data.rdstationOwnerId,
+          rdstationOwnerName: data.rdstationOwnerName,
+        }
+        await funnelService.updateFunnel(editingFunnel.id, updateData)
         toast({ title: "Funil atualizado com sucesso!" })
         await loadFunnels(true, false)
       } else {
-        await funnelService.createFunnel({ ...data, userId: userId! })
+        // Para criação, enviamos os stages do CRM para criar as etapas do funil
+        // e os deals do RD Station para criar os leads automaticamente
+        await funnelService.createFunnel({
+          userId: userId!,
+          name: data.name,
+          description: data.description,
+          isActive: data.isActive,
+          configIaId: data.configIaId,
+          kommoPipelineId: data.kommoPipelineId,
+          kommoPipelineName: data.kommoPipelineName,
+          kommoStages: data.kommoStages,
+          rdstationPipelineId: data.rdstationPipelineId,
+          rdstationPipelineName: data.rdstationPipelineName,
+          rdstationOwnerId: data.rdstationOwnerId,
+          rdstationOwnerName: data.rdstationOwnerName,
+          rdstationStages: data.rdstationStages,
+          rdstationDeals: data.rdstationDeals,
+        })
         toast({ title: "Funil criado com sucesso!" })
         // Select the newly created funnel
         await loadFunnels(true, true)

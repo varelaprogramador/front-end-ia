@@ -138,7 +138,7 @@ export function StageDialog({
                   className={`
                     w-10 h-10 rounded-lg transition-all
                     ${selectedColor === color.value
-                      ? "ring-2 ring-offset-2 ring-primary scale-110"
+                      ? "ring-2 ring-offset-2 ring-offset-background ring-primary scale-110"
                       : "hover:scale-105"
                     }
                   `}

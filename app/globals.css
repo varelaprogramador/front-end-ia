@@ -14,8 +14,8 @@
   --primary-foreground: oklch(0.985 0 0); /* White on primary */
   --secondary: oklch(0.647 0.162 264.376); /* Blue accent */
   --secondary-foreground: oklch(1 0 0); /* White on secondary */
-  --muted: oklch(0.556 0.014 257.28); /* Muted gray */
-  --muted-foreground: oklch(0.708 0.014 257.28); /* Darker muted text for better contrast */
+  --muted: oklch(0.96 0.003 247.858); /* Light muted gray background */
+  --muted-foreground: oklch(0.45 0.014 257.28); /* Darker muted text for better contrast */
   --accent: oklch(0.647 0.162 264.376); /* Blue accent */
   --accent-foreground: oklch(1 0 0); /* White on accent */
   --destructive: oklch(0.577 0.245 27.325); /* Red for errors */

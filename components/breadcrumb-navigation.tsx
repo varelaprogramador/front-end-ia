@@ -60,7 +60,7 @@ export function BreadcrumbNavigation() {
         const Icon = breadcrumb.icon
 
         return (
-          <div key={breadcrumb.href} className="flex items-center">
+          <div key={`${index}-${breadcrumb.href}`} className="flex items-center">
             {index > 0 && <ChevronRight className="h-4 w-4 mx-1" />}
             {isLast ? (
               <span className="font-medium text-foreground text-balance">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import axios, { AxiosError } from "axios";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -23,6 +23,8 @@ interface WorkspaceFormData {
   rdstationClientId: string;
   rdstationClientSecret: string;
   rdstationCode: string;
+  rdstationAccessToken: string;
+  rdstationRefreshToken: string;
   selectedCredentials: string[];
 }
 
@@ -59,29 +61,72 @@ export default function WorkspaceFormStep2({ formData, updateFormData }: Workspa
   const [pipelines, setPipelines] = useState<KommoPipeline[]>([]);
   const [isVerifyingRdstation, setIsVerifyingRdstation] = useState(false);
   const [isRdstationVerified, setIsRdstationVerified] = useState(false);
+  const [isExchangingToken, setIsExchangingToken] = useState(false);
+  const initialCheckDone = useRef(false);
 
-  // Verificar credenciais automaticamente se já existem dados
-  useEffect(() => {
-    if (formData.kommoEnabled && formData.kommoSubdomain && formData.kommoAccessToken && !isVerified) {
-      handleVerifyKommo();
+  // Função para trocar código por access_token
+  const exchangeCodeForToken = useCallback(async (code: string) => {
+    if (!formData.rdstationClientId || !formData.rdstationClientSecret) {
+      toast.error("Client ID e Client Secret são necessários para gerar o token");
+      return;
     }
-  }, []);
 
-  // Listener para receber código de autorização do RD Station via postMessage
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      if (event.data?.type === 'RDSTATION_AUTH_CODE' && event.data?.code) {
-        updateFormData({ rdstationCode: event.data.code });
-        setIsRdstationVerified(true);
-        toast.success("Código de autorização obtido com sucesso!");
+    setIsExchangingToken(true);
+    const loadingToast = toast.loading("Gerando access token...");
+
+    // DEBUG: Verificar valores antes de enviar
+    console.log("🔍 [RD Station Exchange] Valores do formData:", {
+      clientId: formData.rdstationClientId,
+      clientSecret: formData.rdstationClientSecret,
+      clientIdLength: formData.rdstationClientId?.length,
+      clientSecretLength: formData.rdstationClientSecret?.length,
+      areEqual: formData.rdstationClientId === formData.rdstationClientSecret,
+    });
+
+    try {
+      const payload = {
+        code,
+        clientId: formData.rdstationClientId,
+        clientSecret: formData.rdstationClientSecret,
+      };
+      console.log("📤 [RD Station Exchange] Enviando payload:", payload);
+
+      const response = await axios.post("/api/rdstation/exchange", payload);
+
+      if (response.data.success) {
+        const { accessToken, refreshToken } = response.data.data;
+        updateFormData({
+          rdstationAccessToken: accessToken,
+          rdstationRefreshToken: refreshToken,
+        });
+        toast.success("Access token gerado com sucesso!", { id: loadingToast });
+      } else {
+        toast.error("Erro ao gerar access token", {
+          id: loadingToast,
+          description: response.data.error,
+        });
       }
-    };
+    } catch (error) {
+      console.error("Error exchanging code for token:", error);
+      if (axios.isAxiosError(error)) {
+        const message = error.response?.data?.error || "Erro ao gerar access token";
+        toast.error("Erro ao gerar access token", {
+          id: loadingToast,
+          description: message,
+        });
+      } else {
+        toast.error("Erro desconhecido", {
+          id: loadingToast,
+          description: "Ocorreu um erro inesperado. Tente novamente.",
+        });
+      }
+    } finally {
+      setIsExchangingToken(false);
+    }
+  }, [formData.rdstationClientId, formData.rdstationClientSecret, updateFormData]);
 
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [updateFormData]);
-
-  const handleVerifyKommo = async () => {
+  // Função de verificação Kommo
+  const handleVerifyKommo = useCallback(async () => {
     if (!formData.kommoSubdomain || !formData.kommoAccessToken) {
       toast.error("Preencha o subdomínio e o access token");
       return;
@@ -150,7 +195,48 @@ export default function WorkspaceFormStep2({ formData, updateFormData }: Workspa
     } finally {
       setIsVerifying(false);
     }
-  };
+  }, [formData.kommoSubdomain, formData.kommoAccessToken]);
+
+  // Verificar credenciais automaticamente se já existem dados (apenas na montagem)
+  useEffect(() => {
+    if (initialCheckDone.current) return;
+    initialCheckDone.current = true;
+
+    // Se já tem código do RD Station, marcar como verificado
+    if (formData.rdstationCode) {
+      setIsRdstationVerified(true);
+    }
+
+    // Verificar Kommo automaticamente se já tem dados
+    if (formData.kommoEnabled && formData.kommoSubdomain && formData.kommoAccessToken) {
+      handleVerifyKommo();
+    }
+  }, [formData.kommoEnabled, formData.kommoSubdomain, formData.kommoAccessToken, formData.rdstationCode, handleVerifyKommo]);
+
+  // Listener para receber código de autorização do RD Station via postMessage
+  useEffect(() => {
+    const handleMessage = async (event: MessageEvent) => {
+      if (event.data?.type === 'RDSTATION_AUTH_CODE' && event.data?.code) {
+        const code = event.data.code;
+        updateFormData({ rdstationCode: code });
+        setIsRdstationVerified(true);
+        toast.success("Código de autorização obtido com sucesso!");
+
+        // Trocar código por access_token automaticamente
+        await exchangeCodeForToken(code);
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [updateFormData, exchangeCodeForToken]);
+
+  // Atualizar estado quando o código do RD Station mudar
+  useEffect(() => {
+    if (formData.rdstationCode && !isRdstationVerified) {
+      setIsRdstationVerified(true);
+    }
+  }, [formData.rdstationCode, isRdstationVerified]);
 
   return (
     <div className="space-y-6">
@@ -175,16 +261,18 @@ export default function WorkspaceFormStep2({ formData, updateFormData }: Workspa
           id="kommo-enabled"
           checked={formData.kommoEnabled}
           onCheckedChange={(checked) => {
-            updateFormData({ kommoEnabled: checked });
             if (!checked) {
-              // Limpar dados se desativado
+              // Limpar dados se desativado - fazer tudo em uma única chamada
               updateFormData({
+                kommoEnabled: false,
                 kommoSubdomain: "",
                 kommoAccessToken: "",
                 kommodPipelineId: "",
               });
               setIsVerified(false);
               setPipelines([]);
+            } else {
+              updateFormData({ kommoEnabled: true });
             }
           }}
         />
@@ -334,15 +422,19 @@ export default function WorkspaceFormStep2({ formData, updateFormData }: Workspa
           id="rdstation-enabled"
           checked={formData.rdstationEnabled}
           onCheckedChange={(checked) => {
-            updateFormData({ rdstationEnabled: checked });
             if (!checked) {
-              // Limpar dados se desativado
+              // Limpar dados se desativado - fazer tudo em uma única chamada
               updateFormData({
+                rdstationEnabled: false,
                 rdstationClientId: "",
                 rdstationClientSecret: "",
                 rdstationCode: "",
+                rdstationAccessToken: "",
+                rdstationRefreshToken: "",
               });
               setIsRdstationVerified(false);
+            } else {
+              updateFormData({ rdstationEnabled: true });
             }
           }}
         />
@@ -351,6 +443,16 @@ export default function WorkspaceFormStep2({ formData, updateFormData }: Workspa
       {/* Campos de configuração RD Station (aparecem apenas se ativado) */}
       {formData.rdstationEnabled && (
         <div className="space-y-4 pl-4 border-l-2 border-orange-200 dark:border-orange-800">
+          {/* URL de Callback - Mostrar primeiro para o usuário cadastrar */}
+          <div className="rounded-lg bg-blue-50 dark:bg-blue-950/30 p-3 border border-blue-200 dark:border-blue-800">
+            <p className="text-xs font-medium text-blue-800 dark:text-blue-200 mb-1">
+              URL de Callback (cadastre no RD Station):
+            </p>
+            <code className="text-xs bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded block break-all text-blue-900 dark:text-blue-100">
+              {typeof window !== 'undefined' ? `${window.location.origin}/api/rdstation/callback` : ''}
+            </code>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="rdstationClientId">
               Client ID <span className="text-red-500">*</span>
@@ -359,6 +461,7 @@ export default function WorkspaceFormStep2({ formData, updateFormData }: Workspa
               id="rdstationClientId"
               value={formData.rdstationClientId}
               onChange={(e) => {
+                console.log("🔑 [RD Station] Client ID alterado para:", e.target.value);
                 updateFormData({ rdstationClientId: e.target.value });
                 setIsRdstationVerified(false);
               }}
@@ -379,6 +482,7 @@ export default function WorkspaceFormStep2({ formData, updateFormData }: Workspa
               type="password"
               value={formData.rdstationClientSecret}
               onChange={(e) => {
+                console.log("🔐 [RD Station] Client Secret alterado para:", e.target.value);
                 updateFormData({ rdstationClientSecret: e.target.value });
                 setIsRdstationVerified(false);
               }}
@@ -400,7 +504,9 @@ export default function WorkspaceFormStep2({ formData, updateFormData }: Workspa
               }
               // URL de autorização do RD Station CRM v2
               // Documentação: https://developers.rdstation.com/reference/crm-v2-authentication-step-2
-              const redirectUri = encodeURIComponent(`${process.env.NEXT_PUBLIC_API_URL}/oauth/rdstation/callback`);
+              // redirect_uri deve apontar para o frontend (Next.js API route)
+              const frontendUrl = typeof window !== 'undefined' ? window.location.origin : '';
+              const redirectUri = encodeURIComponent(`${frontendUrl}/api/rdstation/callback`);
               const authUrl = `https://accounts.rdstation.com/oauth/authorize?response_type=code&client_id=${formData.rdstationClientId}&redirect_uri=${redirectUri}`;
               window.open(authUrl, "_blank", "width=600,height=700");
               toast.info("Uma nova janela foi aberta para autorização", {
@@ -423,11 +529,105 @@ export default function WorkspaceFormStep2({ formData, updateFormData }: Workspa
             )}
           </Button>
 
-          {formData.rdstationCode && (
-            <div className="rounded-lg bg-green-50 dark:bg-green-950/30 p-3 border border-green-200 dark:border-green-800">
-              <p className="text-xs text-green-800 dark:text-green-200">
-                <strong>Código obtido!</strong> O access token será gerado automaticamente ao criar o workspace.
+          {/* Alerta quando tem código mas não tem token */}
+          {formData.rdstationCode && !formData.rdstationAccessToken && !isExchangingToken && (
+            <div className="rounded-lg bg-yellow-50 dark:bg-yellow-950/30 p-3 border border-yellow-200 dark:border-yellow-800">
+              <p className="text-xs text-yellow-800 dark:text-yellow-200">
+                <AlertCircle className="inline h-3 w-3 mr-1" />
+                <strong>Atenção:</strong> O código de autorização foi obtido, mas o access token não está preenchido.
+                Clique em "Gerar Token" para criar o access token.
               </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="mt-2 gap-2"
+                onClick={() => exchangeCodeForToken(formData.rdstationCode)}
+                disabled={isExchangingToken || !formData.rdstationClientId || !formData.rdstationClientSecret}
+              >
+                <RefreshCw className="h-3 w-3" />
+                Gerar Token
+              </Button>
+            </div>
+          )}
+
+          {/* Status quando está gerando token */}
+          {isExchangingToken && (
+            <div className="rounded-lg bg-blue-50 dark:bg-blue-950/30 p-3 border border-blue-200 dark:border-blue-800">
+              <p className="text-xs text-blue-800 dark:text-blue-200">
+                <RefreshCw className="inline h-3 w-3 animate-spin mr-1" /> Gerando access token...
+              </p>
+            </div>
+          )}
+
+          {/* Sucesso - Token gerado */}
+          {formData.rdstationAccessToken && !isExchangingToken && (
+            <div className="rounded-lg bg-green-50 dark:bg-green-950/30 p-3 border border-green-200 dark:border-green-800">
+              <p className="text-xs text-green-800 dark:text-green-200 mb-2">
+                <CheckCircle className="inline h-3 w-3 mr-1" />
+                <strong>Integração configurada!</strong> Access token gerado com sucesso.
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="gap-2"
+                  onClick={async () => {
+                    // Atualizar token usando refresh_token
+                    if (!formData.rdstationRefreshToken) {
+                      toast.error("Refresh token não disponível. Regenere a autorização.");
+                      return;
+                    }
+                    setIsExchangingToken(true);
+                    const loadingToast = toast.loading("Atualizando token...");
+                    try {
+                      const response = await axios.post("/api/rdstation/refresh", {
+                        refreshToken: formData.rdstationRefreshToken,
+                        clientId: formData.rdstationClientId,
+                        clientSecret: formData.rdstationClientSecret,
+                      });
+                      if (response.data.success) {
+                        const { accessToken, refreshToken } = response.data.data;
+                        updateFormData({
+                          rdstationAccessToken: accessToken,
+                          rdstationRefreshToken: refreshToken || formData.rdstationRefreshToken,
+                        });
+                        toast.success("Token atualizado com sucesso!", { id: loadingToast });
+                      } else {
+                        toast.error("Erro ao atualizar token", { id: loadingToast, description: response.data.error });
+                      }
+                    } catch (error) {
+                      console.error("Error refreshing token:", error);
+                      toast.error("Erro ao atualizar token", { id: loadingToast });
+                    } finally {
+                      setIsExchangingToken(false);
+                    }
+                  }}
+                  disabled={isExchangingToken}
+                >
+                  <RefreshCw className="h-3 w-3" />
+                  Atualizar Token
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="gap-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                  onClick={() => {
+                    // Regenerar - limpar tokens e abrir nova autorização
+                    updateFormData({
+                      rdstationCode: "",
+                      rdstationAccessToken: "",
+                      rdstationRefreshToken: "",
+                    });
+                    setIsRdstationVerified(false);
+                    toast.info("Tokens removidos. Clique em 'Gerar Código de Autorização' para reconectar.");
+                  }}
+                >
+                  Regenerar Autorização
+                </Button>
+              </div>
             </div>
           )}
 

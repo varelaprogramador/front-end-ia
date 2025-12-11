@@ -28,6 +28,8 @@ interface WorkspaceFormData {
   rdstationClientId: string;
   rdstationClientSecret: string;
   rdstationCode: string;
+  rdstationAccessToken: string;
+  rdstationRefreshToken: string;
 
   // Não usado na edição, mas necessário para compatibilidade
   selectedCredentials: string[];
@@ -73,6 +75,8 @@ export default function EditarWorkspacePage() {
     rdstationClientId: "",
     rdstationClientSecret: "",
     rdstationCode: "",
+    rdstationAccessToken: "",
+    rdstationRefreshToken: "",
 
     // Não usado na edição
     selectedCredentials: [],
@@ -88,6 +92,15 @@ export default function EditarWorkspacePage() {
 
         if (agent) {
           setOriginalAgent(agent);
+
+          // DEBUG: Verificar valores recebidos do backend
+          console.log("🔍 [EDIT] Dados do agente recebidos do backend:", {
+            rdstationClientId: agent.rdstationClientId,
+            rdstationClientSecret: agent.rdstationClientSecret,
+            areEqual: agent.rdstationClientId === agent.rdstationClientSecret,
+          });
+
+          const rdEnabled = !!(agent.rdstationClientId || agent.rdstationClientSecret || agent.rdstationCode);
           setFormData({
             name: agent.name,
             status: agent.status,
@@ -97,10 +110,12 @@ export default function EditarWorkspacePage() {
             kommoSubdomain: agent.kommoSubdomain || "",
             kommoAccessToken: agent.kommoAccessToken || "",
             kommodPipelineId: agent.kommodPipelineId || "",
-            rdstationEnabled: !!(agent.rdstationClientId || agent.rdstationClientSecret),
+            rdstationEnabled: rdEnabled,
             rdstationClientId: agent.rdstationClientId || "",
             rdstationClientSecret: agent.rdstationClientSecret || "",
             rdstationCode: agent.rdstationCode || "",
+            rdstationAccessToken: agent.rdstationAccessToken || "",
+            rdstationRefreshToken: agent.rdstationRefreshToken || "",
             selectedCredentials: agent.credentialIds || [],
           });
         } else {
@@ -191,6 +206,8 @@ export default function EditarWorkspacePage() {
         rdstationClientId: formData.rdstationEnabled ? formData.rdstationClientId : undefined,
         rdstationClientSecret: formData.rdstationEnabled ? formData.rdstationClientSecret : undefined,
         rdstationCode: formData.rdstationEnabled ? formData.rdstationCode : undefined,
+        rdstationAccessToken: formData.rdstationEnabled ? formData.rdstationAccessToken : undefined,
+        rdstationRefreshToken: formData.rdstationEnabled ? formData.rdstationRefreshToken : undefined,
       };
 
       const result = await updateAgent(workspaceId, updateData);

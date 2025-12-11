@@ -58,8 +58,17 @@ export const getAgentById = async (id: string): Promise<Agent | undefined> => {
   try {
     const response = await configIAService.getConfigById(id);
 
+    console.log("🔍 [getAgentById] Full response:", JSON.stringify(response, null, 2));
+
     if (response.success && response.data) {
-      return configIAToAgent(response.data);
+      const agent = configIAToAgent(response.data);
+      console.log("🔍 [getAgentById] Converted agent RD Station fields:", {
+        rdstationClientId: agent.rdstationClientId,
+        rdstationClientSecret: agent.rdstationClientSecret ? "***" : null,
+        rdstationCode: agent.rdstationCode,
+        rdstationAccessToken: agent.rdstationAccessToken ? "***" : null,
+      });
+      return agent;
     }
 
     console.error("Failed to fetch agent by ID:", response.error);

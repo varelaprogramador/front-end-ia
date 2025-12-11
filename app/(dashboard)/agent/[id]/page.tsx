@@ -5,8 +5,11 @@ import { useRouter } from "next/navigation"
 import { KPICards } from "@/components/kpi-cards"
 import { AnalyticsCharts } from "@/components/analytics-charts"
 import { MessagesTable } from "@/components/messages-table"
+import { FunnelKPICards } from "@/components/funnel-kpi-cards"
+import { FunnelAnalyticsCharts } from "@/components/funnel-analytics-charts"
 import { getAgentById, type Agent } from "@/lib/agents"
 import { getMessagesByAgentId, getAppointmentMessages, getMessageStats, getChartData, type Message } from "@/lib/messages-real"
+import { getFunnelStatsByAgentId, type FunnelStats } from "@/lib/funnel-stats"
 
 interface AgentDashboardPageProps {
   params: { id: string }
@@ -27,6 +30,7 @@ export default function AgentDashboardPage({ params }: AgentDashboardPageProps) 
     confirmedAppointments: 0,
   })
   const [chartData, setChartData] = useState<any>(null)
+  const [funnelStats, setFunnelStats] = useState<FunnelStats | null>(null)
   const router = useRouter()
 
   // Carregar dados do agente
@@ -67,22 +71,26 @@ export default function AgentDashboardPage({ params }: AgentDashboardPageProps) 
         console.log(`📊 [DASHBOARD] Carregando dados para ${agent.name}`)
 
         // Carregar todos os dados em paralelo
-        const [messagesData, appointmentMessagesData, statsData, chartDataResult] = await Promise.all([
+        const [messagesData, appointmentMessagesData, statsData, chartDataResult, funnelStatsData] = await Promise.all([
           getMessagesByAgentId(agent.id),
           getAppointmentMessages(agent.id),
           getMessageStats(agent.id),
-          getChartData(agent.id)
+          getChartData(agent.id),
+          getFunnelStatsByAgentId(agent.id)
         ])
 
         setMessages(messagesData)
         setAppointmentMessages(appointmentMessagesData)
         setStats(statsData)
         setChartData(chartDataResult)
+        setFunnelStats(funnelStatsData)
 
         console.log(`✅ [DASHBOARD] Dados carregados:`, {
           totalMessages: messagesData.length,
           appointments: statsData.confirmedAppointments,
-          todayMessages: statsData.today
+          todayMessages: statsData.today,
+          funnels: funnelStatsData?.totalFunnels || 0,
+          funnelLeads: funnelStatsData?.totalLeads || 0
         })
       } catch (error) {
         console.error('Erro ao carregar dados do dashboard:', error)
@@ -154,10 +162,27 @@ export default function AgentDashboardPage({ params }: AgentDashboardPageProps) 
         </div>
 
         {/* KPI Cards */}
-        <KPICards stats={stats} />
+        <KPICards total={stats.total} today={stats.today} month={stats.month} year={stats.year} confirmedAppointments={stats.confirmedAppointments} />
 
         {/* Analytics Charts */}
         {chartData && <AnalyticsCharts chartData={chartData} />}
+
+        {/* Funnel Section */}
+        {funnelStats && funnelStats.totalFunnels > 0 && (
+          <>
+            <div className="border-t pt-8">
+              <FunnelKPICards stats={funnelStats} />
+            </div>
+
+            <FunnelAnalyticsCharts
+              chartData={{
+                stageDistribution: funnelStats.stageDistribution,
+                monthlyTrend: funnelStats.monthlyTrend,
+                topFunnels: funnelStats.topFunnels,
+              }}
+            />
+          </>
+        )}
 
         {/* Messages Table */}
         <MessagesTable messages={messages} appointmentMessages={appointmentMessages} />
