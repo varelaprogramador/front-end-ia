@@ -84,10 +84,15 @@ export default function WorkspaceFormStep2({ formData, updateFormData }: Workspa
     });
 
     try {
+      // Usar a mesma URL de redirect que foi usada na autorização
+      const frontendUrl = process.env.NEXT_PUBLIC_APP_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+      const redirectUri = `${frontendUrl}/api/rdstation/callback`;
+
       const payload = {
         code,
         clientId: formData.rdstationClientId,
         clientSecret: formData.rdstationClientSecret,
+        redirectUri, // Enviar o redirectUri para garantir consistência
       };
       console.log("📤 [RD Station Exchange] Enviando payload:", payload);
 
@@ -504,8 +509,8 @@ export default function WorkspaceFormStep2({ formData, updateFormData }: Workspa
               }
               // URL de autorização do RD Station CRM v2
               // Documentação: https://developers.rdstation.com/reference/crm-v2-authentication-step-2
-              // redirect_uri deve apontar para o frontend (Next.js API route)
-              const frontendUrl = typeof window !== 'undefined' ? window.location.origin : '';
+              // redirect_uri deve ser a URL cadastrada no RD Station (usar env var para consistência)
+              const frontendUrl = process.env.NEXT_PUBLIC_APP_URL || (typeof window !== 'undefined' ? window.location.origin : '');
               const redirectUri = encodeURIComponent(`${frontendUrl}/api/rdstation/callback`);
               const authUrl = `https://accounts.rdstation.com/oauth/authorize?response_type=code&client_id=${formData.rdstationClientId}&redirect_uri=${redirectUri}`;
               window.open(authUrl, "_blank", "width=600,height=700");
