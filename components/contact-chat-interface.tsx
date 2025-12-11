@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -228,7 +228,7 @@ export function ContactChatInterface({ contactId, agentId }: ContactChatInterfac
     }
   }, [newMessage, emitTyping])
 
-  const loadMessages = async (showRefreshLoader = false) => {
+  const loadMessages = useCallback(async (showRefreshLoader = false) => {
     try {
       if (showRefreshLoader) {
         setRefreshing(true)
@@ -238,7 +238,7 @@ export function ContactChatInterface({ contactId, agentId }: ContactChatInterfac
 
       const response = await myMessagesService.getMessagesByAgent(agentId, {
         contactId: contactId,
-        limit: 100, // Aumentar limite para mais mensagens
+        limit: 50, // Limite otimizado para performance
       })
 
       if (response.success) {
@@ -315,9 +315,9 @@ export function ContactChatInterface({ contactId, agentId }: ContactChatInterfac
       setLoading(false)
       setRefreshing(false)
     }
-  }
+  }, [agentId, contactId])
 
-  const checkContactDeactivationStatus = async () => {
+  const checkContactDeactivationStatus = useCallback(async () => {
     try {
       const deactivatedAgents = await getDeactivatedAgentsByConfig(agentId, true)
 
@@ -343,7 +343,7 @@ export function ContactChatInterface({ contactId, agentId }: ContactChatInterfac
       setIsContactDeactivated(false)
       setDeactivatedAgent(null)
     }
-  }
+  }, [agentId, contactId])
 
   const handleToggleContactStatus = async () => {
     if (togglingContactStatus) return
@@ -416,9 +416,8 @@ export function ContactChatInterface({ contactId, agentId }: ContactChatInterfac
 
         // Limpar mensagens ao trocar de contato
         setMessages([])
+        setMediaCache({}) // Limpar cache de mídia ao trocar de contato
         previousContactIdRef.current = contactId
-      } else {
-        console.log(`🔄 [CHAT] Recarregando mensagens para contato ${contactId}`)
       }
 
       // Reset do estado
@@ -431,7 +430,7 @@ export function ContactChatInterface({ contactId, agentId }: ContactChatInterfac
       loadMessages()
       checkContactDeactivationStatus()
     }
-  }, [contactId, agentId])
+  }, [contactId, agentId, loadMessages, checkContactDeactivationStatus])
 
   useEffect(() => {
     // Scroll to bottom when messages change
@@ -684,9 +683,9 @@ export function ContactChatInterface({ contactId, agentId }: ContactChatInterfac
     }
   }
 
-  const handleRefresh = () => {
+  const handleRefresh = useCallback(() => {
     loadMessages(true)
-  }
+  }, [loadMessages])
 
   const formatMessageTime = (timestamp?: string | null) => {
     if (!timestamp) return ""

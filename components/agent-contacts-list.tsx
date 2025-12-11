@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -9,19 +9,14 @@ import {
   Users,
   User,
   MessageCircle,
-  Loader2,
   RefreshCw,
-  Clock,
   CheckCheck,
-  Bot,
-  Smartphone
+  Bot
 } from "lucide-react"
 import { myMessagesService, type Contact, type Message } from "@/lib/my-messages-api"
 import { formatDistanceToNow } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { useSocket } from "@/lib/socket-context"
-import { FixedSizeList as List } from "react-window"
-import type { ListChildComponentProps } from "react-window"
 
 interface AgentContactsListProps {
   agentId: string
@@ -37,21 +32,16 @@ export function AgentContactsList({
   collapsed = false,
 }: AgentContactsListProps) {
   const [contacts, setContacts] = useState<Contact[]>([])
-  const [filteredContacts, setFilteredContacts] = useState<Contact[]>([])
   const [lastMessages, setLastMessages] = useState<{ [contactId: string]: Message }>({})
   const [searchTerm, setSearchTerm] = useState("")
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [agentName, setAgentName] = useState("")
-  const [listHeight, setListHeight] = useState(600)
   const containerRef = useRef<HTMLDivElement>(null)
+  const previousAgentIdRef = useRef<string | null>(null)
 
-  // ===================================================
   // WebSocket Integration
-  // ===================================================
-
   const {
-    socket,
     joinAgentRoom,
     leaveAgentRoom,
     onNewMessage,
@@ -60,37 +50,25 @@ export function AgentContactsList({
     status: socketStatus,
   } = useSocket()
 
-  // Debug WebSocket connection
-  useEffect(() => {
-    console.log(`🔌 [WEBSOCKET-CONTACTS] Status: ${socketStatus}, Connected: ${socketConnected}`)
-  }, [socketStatus, socketConnected])
-
-  // Calculate list height
-  useEffect(() => {
-    const updateHeight = () => {
-      if (containerRef.current) {
-        const height = containerRef.current.clientHeight
-        setListHeight(height)
-      }
+  // Filtrar contatos com useMemo para evitar recálculos desnecessários
+  const filteredContacts = useMemo(() => {
+    if (!searchTerm.trim()) {
+      return contacts
     }
-
-    updateHeight()
-    window.addEventListener('resize', updateHeight)
-    return () => window.removeEventListener('resize', updateHeight)
-  }, [])
+    const search = searchTerm.toLowerCase()
+    return contacts.filter(contact =>
+      contact.contactName.toLowerCase().includes(search) ||
+      contact.contactId.toLowerCase().includes(search)
+    )
+  }, [searchTerm, contacts])
 
   // Join agent room for contact updates
   useEffect(() => {
-    if (!socketConnected || !agentId) {
-      console.log(`⚠️ [WEBSOCKET-CONTACTS] Não entrando no room. socketConnected: ${socketConnected}, agentId: ${agentId}`)
-      return
-    }
+    if (!socketConnected || !agentId) return
 
-    console.log(`🚪 [WEBSOCKET-CONTACTS] Entrando no room do agente: agent:${agentId}`)
     joinAgentRoom(agentId)
 
     return () => {
-      console.log(`🚪 [WEBSOCKET-CONTACTS] Saindo do room do agente: agent:${agentId}`)
       leaveAgentRoom(agentId)
     }
   }, [socketConnected, agentId, joinAgentRoom, leaveAgentRoom])
@@ -103,6 +81,8 @@ export function AgentContactsList({
       const contactId = newMessage.direction === "received"
         ? (newMessage.senderId || newMessage.chatId)
         : (newMessage.chatId || newMessage.senderId)
+
+      if (!contactId) return
 
       // Update last message for this contact
       setLastMessages(prev => ({
@@ -136,19 +116,6 @@ export function AgentContactsList({
     return cleanup
   }, [socketConnected, onNewMessage])
 
-  // Update filtered contacts when contacts or search term changes
-  useEffect(() => {
-    if (!searchTerm) {
-      setFilteredContacts([...contacts])
-    } else {
-      const filtered = contacts.filter(contact =>
-        contact.contactName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        contact.contactId.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-      setFilteredContacts(filtered)
-    }
-  }, [searchTerm, contacts, lastMessages])
-
   // Listen for contact updates
   useEffect(() => {
     if (!socketConnected) return
@@ -170,7 +137,8 @@ export function AgentContactsList({
     return cleanup
   }, [socketConnected, onContactUpdate])
 
-  const loadContacts = async (showRefreshLoader = false) => {
+  // Função otimizada para carregar contatos - busca apenas primeiros 10 para performance
+  const loadContacts = useCallback(async (showRefreshLoader = false) => {
     try {
       if (showRefreshLoader) {
         setRefreshing(true)
@@ -188,30 +156,34 @@ export function AgentContactsList({
         })
 
         setContacts(sortedContacts)
-        setFilteredContacts(sortedContacts)
         setAgentName(response.metadata.agentName)
 
-        // Buscar última mensagem para cada contato
+        // Buscar última mensagem apenas para os primeiros 10 contatos (performance)
+        const contactsToFetch = sortedContacts.slice(0, 10)
         const lastMessagesMap: { [contactId: string]: Message } = {}
 
-        await Promise.all(
-          response.data.map(async (contact) => {
-            try {
-              const messagesResponse = await myMessagesService.getMessagesByAgent(agentId, {
-                contactId: contact.contactId,
-                limit: 1
-              })
+        // Usar Promise.allSettled para não falhar se um contato der erro
+        const results = await Promise.allSettled(
+          contactsToFetch.map(async (contact) => {
+            const messagesResponse = await myMessagesService.getMessagesByAgent(agentId, {
+              contactId: contact.contactId,
+              limit: 1
+            })
 
-              if (messagesResponse.success && messagesResponse.data.length > 0) {
-                lastMessagesMap[contact.contactId] = messagesResponse.data[0]
-              }
-            } catch (error) {
-              console.warn(`Erro ao buscar última mensagem para ${contact.contactId}:`, error)
+            if (messagesResponse.success && messagesResponse.data.length > 0) {
+              return { contactId: contact.contactId, message: messagesResponse.data[0] }
             }
+            return null
           })
         )
 
-        setLastMessages(lastMessagesMap)
+        results.forEach(result => {
+          if (result.status === 'fulfilled' && result.value) {
+            lastMessagesMap[result.value.contactId] = result.value.message
+          }
+        })
+
+        setLastMessages(prev => ({ ...prev, ...lastMessagesMap }))
       }
     } catch (error) {
       console.error("Error loading contacts:", error)
@@ -219,130 +191,136 @@ export function AgentContactsList({
       setLoading(false)
       setRefreshing(false)
     }
-  }
-
-  useEffect(() => {
-    if (agentId) {
-      loadContacts()
-    }
   }, [agentId])
 
-  const handleRefresh = () => {
-    loadContacts(true)
-  }
+  // Carregar contatos quando o agentId mudar
+  useEffect(() => {
+    if (agentId && agentId !== previousAgentIdRef.current) {
+      previousAgentIdRef.current = agentId
+      // Limpar estado anterior ao trocar de agente
+      setContacts([])
+      setLastMessages({})
+      setSearchTerm("")
+      loadContacts()
+    }
+  }, [agentId, loadContacts])
 
-  // Render individual contact item
-  const ContactRow = ({ index, style }: ListChildComponentProps) => {
-    const contact = filteredContacts[index]
+  const handleRefresh = useCallback(() => {
+    loadContacts(true)
+  }, [loadContacts])
+
+  // Função para selecionar contato
+  const handleSelectContact = useCallback((contactId: string) => {
+    onSelectContact(contactId)
+  }, [onSelectContact])
+
+  // Componente de item de contato - memoizado para performance
+  const ContactItem = useCallback(({ contact }: { contact: Contact }) => {
     const lastMessage = lastMessages[contact.contactId]
     const isSelected = selectedContactId === contact.contactId
 
     if (collapsed) {
       return (
-        <div style={style} className="px-2">
-          <button
-            onClick={() => onSelectContact(contact.contactId)}
-            className={`w-full p-2 flex justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors rounded-lg ${
-              isSelected ? "bg-green-50 dark:bg-green-900/20" : "bg-transparent"
-            }`}
-            title={contact.contactName}
-          >
-            <div className="relative">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center text-white font-semibold text-sm">
-                {contact.isGroup ? (
-                  <Users className="h-5 w-5" />
-                ) : (
-                  <span>{contact.contactName.charAt(0).toUpperCase()}</span>
-                )}
-              </div>
-              <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white dark:border-gray-900"></div>
-              {lastMessage && lastMessage.direction === "received" && !lastMessage.isAiResponse && (
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
-                  <span className="text-white text-[10px] font-bold">1</span>
-                </div>
+        <button
+          onClick={() => handleSelectContact(contact.contactId)}
+          className={`w-full p-2 flex justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors rounded-lg ${
+            isSelected ? "bg-green-50 dark:bg-green-900/20 ring-2 ring-green-500" : "bg-transparent"
+          }`}
+          title={contact.contactName}
+        >
+          <div className="relative">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center text-white font-semibold text-sm">
+              {contact.isGroup ? (
+                <Users className="h-5 w-5" />
+              ) : (
+                <span>{contact.contactName.charAt(0).toUpperCase()}</span>
               )}
             </div>
-          </button>
-        </div>
+            <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white dark:border-gray-900" />
+            {lastMessage && lastMessage.direction === "received" && !lastMessage.isAiResponse && (
+              <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
+                <span className="text-white text-[10px] font-bold">1</span>
+              </div>
+            )}
+          </div>
+        </button>
       )
     }
 
     return (
-      <div style={style} className="px-3">
-        <button
-          onClick={() => onSelectContact(contact.contactId)}
-          className={`w-full p-3 text-left hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors rounded-lg ${
-            isSelected ? "bg-green-50 dark:bg-green-900/20" : "bg-transparent"
-          }`}
-        >
-          <div className="flex items-center space-x-3">
-            {/* Avatar */}
-            <div className="relative flex-shrink-0">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center text-white font-semibold text-base">
-                {contact.isGroup ? (
-                  <Users className="h-6 w-6" />
-                ) : (
-                  <span>{contact.contactName.charAt(0).toUpperCase()}</span>
+      <button
+        onClick={() => handleSelectContact(contact.contactId)}
+        className={`w-full p-3 text-left hover:bg-gray-100 dark:hover:bg-gray-800 transition-all rounded-lg ${
+          isSelected ? "bg-green-50 dark:bg-green-900/20 ring-2 ring-green-500" : "bg-transparent"
+        }`}
+      >
+        <div className="flex items-center space-x-3">
+          {/* Avatar */}
+          <div className="relative flex-shrink-0">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center text-white font-semibold text-base">
+              {contact.isGroup ? (
+                <Users className="h-6 w-6" />
+              ) : (
+                <span>{contact.contactName.charAt(0).toUpperCase()}</span>
+              )}
+            </div>
+            <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-gray-900" />
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 min-w-0">
+            {/* Header: Name and Time */}
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center space-x-2 min-w-0 flex-1">
+                <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate">
+                  {contact.contactName}
+                </h3>
+                {contact.isGroup && (
+                  <Users className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
                 )}
               </div>
-              <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-gray-900"></div>
+              <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0 ml-2">
+                {contact.lastMessageTime
+                  ? formatDistanceToNow(new Date(contact.lastMessageTime), {
+                      addSuffix: false,
+                      locale: ptBR,
+                    }).replace('aproximadamente ', '').replace('cerca de ', '')
+                  : ""}
+              </span>
             </div>
 
-            {/* Content */}
-            <div className="flex-1 min-w-0">
-              {/* Header: Name and Time */}
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center space-x-2 min-w-0 flex-1">
-                  <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate">
-                    {contact.contactName}
-                  </h3>
-                  {contact.isGroup && (
-                    <Users className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
-                  )}
-                </div>
-                <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0 ml-2">
-                  {contact.lastMessageTime
-                    ? formatDistanceToNow(new Date(contact.lastMessageTime), {
-                        addSuffix: false,
-                        locale: ptBR,
-                      }).replace('aproximadamente ', '').replace('cerca de ', '')
-                    : ""}
-                </span>
-              </div>
-
-              {/* Message Preview */}
-              <div className="flex items-center justify-between space-x-2">
-                <div className="flex items-center space-x-1 min-w-0 flex-1">
-                  {lastMessage && (
-                    <>
-                      {lastMessage.direction === "sent" && (
-                        <CheckCheck className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
-                      )}
-                      {lastMessage.isAiResponse && (
-                        <Bot className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
-                      )}
-                    </>
-                  )}
-                  <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
-                    {lastMessage
-                      ? lastMessage.isAiResponse
-                        ? lastMessage.aiResponse || "Resposta da IA"
-                        : lastMessage.message || lastMessage.content || "Mensagem"
-                      : "Nenhuma mensagem"}
-                  </p>
-                </div>
-                {lastMessage && lastMessage.direction === "received" && !lastMessage.isAiResponse && (
-                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
-                    <span className="text-white text-xs font-bold">1</span>
-                  </div>
+            {/* Message Preview */}
+            <div className="flex items-center justify-between space-x-2">
+              <div className="flex items-center space-x-1 min-w-0 flex-1">
+                {lastMessage && (
+                  <>
+                    {lastMessage.direction === "sent" && (
+                      <CheckCheck className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
+                    )}
+                    {lastMessage.isAiResponse && (
+                      <Bot className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
+                    )}
+                  </>
                 )}
+                <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                  {lastMessage
+                    ? lastMessage.isAiResponse
+                      ? lastMessage.aiResponse || "Resposta da IA"
+                      : lastMessage.message || lastMessage.content || "Mensagem"
+                    : "Nenhuma mensagem"}
+                </p>
               </div>
+              {lastMessage && lastMessage.direction === "received" && !lastMessage.isAiResponse && (
+                <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                  <span className="text-white text-xs font-bold">1</span>
+                </div>
+              )}
             </div>
           </div>
-        </button>
-      </div>
+        </div>
+      </button>
     )
-  }
+  }, [collapsed, selectedContactId, lastMessages, handleSelectContact])
 
   if (loading) {
     return (
@@ -429,8 +407,8 @@ export function AgentContactsList({
         )}
       </div>
 
-      {/* Virtualized Contact List */}
-      <div ref={containerRef} className="flex-1 overflow-hidden">
+      {/* Contact List with Native Scroll */}
+      <div ref={containerRef} className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
         {filteredContacts.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full p-8">
             <MessageCircle className="h-12 w-12 text-gray-300 dark:text-gray-600 mb-3" />
@@ -439,15 +417,11 @@ export function AgentContactsList({
             </p>
           </div>
         ) : (
-          <List
-            height={listHeight}
-            itemCount={filteredContacts.length}
-            itemSize={collapsed ? 64 : 76}
-            width="100%"
-            className="scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent"
-          >
-            {ContactRow}
-          </List>
+          <div className={collapsed ? "p-1 space-y-1" : "p-2 space-y-1"}>
+            {filteredContacts.map((contact) => (
+              <ContactItem key={contact.contactId} contact={contact} />
+            ))}
+          </div>
         )}
       </div>
 

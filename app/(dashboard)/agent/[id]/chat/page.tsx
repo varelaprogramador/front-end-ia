@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { AgentContactsList } from "@/components/agent-contacts-list"
 import { ContactChatInterface } from "@/components/contact-chat-interface"
@@ -58,8 +58,6 @@ export default function ChatPage({ params }: ChatPageProps) {
       loadAgent()
     }
   }, [params.id])
-  console.log(agent)
-
   // Atalho de teclado para toggle rápido
   useEffect(() => {
     const handleKeyPress = (event: KeyboardEvent) => {
@@ -77,18 +75,18 @@ export default function ChatPage({ params }: ChatPageProps) {
   }, [agent, isToggling])
 
   // Função para lidar com seleção de contato
-  const handleSelectContact = (contactId: string) => {
+  const handleSelectContact = useCallback((contactId: string) => {
     setSelectedContactId(contactId)
     // Em mobile, fechar sidebar quando selecionar contato
     if (isMobile) {
       setSidebarCollapsed(true)
     }
-  }
+  }, [isMobile])
 
   // Função para toggle da sidebar
-  const toggleSidebar = () => {
-    setSidebarCollapsed(!sidebarCollapsed)
-  }
+  const toggleSidebar = useCallback(() => {
+    setSidebarCollapsed(prev => !prev)
+  }, [])
 
   const handleToggleStatus = async () => {
     if (!agent) return
@@ -228,16 +226,17 @@ export default function ChatPage({ params }: ChatPageProps) {
       {/* Sidebar de contatos */}
       <div className={`
         ${sidebarCollapsed ? (isMobile ? 'w-0' : 'w-16') : 'w-80'}
-        transition-all duration-300 ease-in-out overflow-hidden
-        ${isMobile ? 'fixed left-0 top-0 h-full z-50' : 'relative'}
+        transition-all duration-300 ease-in-out
+        ${isMobile ? 'fixed left-0 top-0 h-full z-50 bg-white dark:bg-gray-900' : 'relative'}
         ${isMobile && sidebarCollapsed ? '-translate-x-full' : 'translate-x-0'}
+        ${!sidebarCollapsed ? 'overflow-visible' : 'overflow-hidden'}
       `}>
-        <div className={`h-full ${sidebarCollapsed ? 'overflow-hidden' : ''}`}>
+        <div className="h-full w-80">
           <AgentContactsList
             agentId={params.id}
             selectedContactId={selectedContactId}
             onSelectContact={handleSelectContact}
-            collapsed={sidebarCollapsed}
+            collapsed={!isMobile && sidebarCollapsed}
           />
         </div>
       </div>
