@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
   const errorDescription = searchParams.get("error_description");
 
   // URL de callback para mostrar ao usuário
-  const callbackUrl = `${request.nextUrl.origin}/api/rdstation/callback`;
+  const callbackUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/rdstation/callback`;
 
   if (error) {
     // Redirecionar com erro
@@ -39,7 +39,9 @@ export async function GET(request: NextRequest) {
           <div class="container">
             <h1>&#10060; Erro na Autorizacao</h1>
             <p>Nao foi possivel autorizar a integracao com RD Station CRM.</p>
-            <div class="error-msg">${errorDescription || error || 'Erro desconhecido'}</div>
+            <div class="error-msg">${
+              errorDescription || error || "Erro desconhecido"
+            }</div>
 
             <div class="callback-label">&#9888; Verifique se esta URL esta cadastrada no RD Station:</div>
             <div class="callback-url" id="callbackUrl">${callbackUrl}</div>
@@ -54,7 +56,7 @@ export async function GET(request: NextRequest) {
               window.opener.postMessage({
                 type: 'RDSTATION_AUTH_ERROR',
                 error: '${error}',
-                error_description: '${errorDescription || ''}'
+                error_description: '${errorDescription || ""}'
               }, '*');
             }
 
