@@ -23,6 +23,7 @@ import {
   XCircle,
   Settings,
   Bot,
+  Trash2,
 } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { useUserId } from "@/lib/use-user-id"
@@ -198,13 +199,36 @@ export default function FunilPage() {
         // Select the newly created funnel
         await loadFunnels(true, true)
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving funnel:", error)
+      // Extrair mensagem de erro do backend
+      const errorMessage = error?.response?.data?.error || error?.message || "Erro ao salvar funil"
       toast({
         title: "Erro ao salvar funil",
+        description: errorMessage,
         variant: "destructive",
       })
       throw error
+    }
+  }
+
+  // Handle delete funnel
+  const handleDeleteFunnel = async (funnelId: string) => {
+    if (!confirm("Tem certeza que deseja excluir este funil? Todos os leads e estágios serão removidos permanentemente.")) return
+
+    try {
+      await funnelService.deleteFunnel(funnelId)
+      toast({ title: "Funil excluído com sucesso!" })
+      setSelectedFunnel(null)
+      await loadFunnels(true, false)
+    } catch (error: any) {
+      console.error("Error deleting funnel:", error)
+      const errorMessage = error?.response?.data?.error || error?.message || "Erro ao excluir funil"
+      toast({
+        title: "Erro ao excluir funil",
+        description: errorMessage,
+        variant: "destructive",
+      })
     }
   }
 
@@ -424,6 +448,14 @@ export default function FunilPage() {
                   }}
                 >
                   <Settings className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => handleDeleteFunnel(selectedFunnel.id)}
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                >
+                  <Trash2 className="h-4 w-4" />
                 </Button>
                 <Button
                   variant="outline"
