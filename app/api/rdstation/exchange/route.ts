@@ -25,14 +25,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: "Parâmetros obrigatórios ausentes: code, clientId, clientSecret",
+          error:
+            "Parâmetros obrigatórios ausentes: code, clientId, clientSecret",
         },
         { status: 400 }
       );
     }
 
     // Determinar redirectUri
-    const finalRedirectUri = redirectUri || `${request.nextUrl.origin}/api/rdstation/callback`;
+    const finalRedirectUri =
+      redirectUri ||
+      `${process.env.NEXT_PUBLIC_APP_URL}/api/rdstation/callback`;
 
     console.log("🔑 [RD Station Exchange] Iniciando troca de token:", {
       code: code.substring(0, 10) + "...",
@@ -66,7 +69,8 @@ export async function POST(request: NextRequest) {
       let errorMessage = "Erro ao trocar código por token";
       try {
         const errorData = JSON.parse(responseText);
-        errorMessage = errorData.error_description || errorData.error || errorMessage;
+        errorMessage =
+          errorData.error_description || errorData.error || errorMessage;
       } catch {
         // Usar mensagem padrão
       }
@@ -104,7 +108,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Erro interno do servidor",
+        error:
+          error instanceof Error ? error.message : "Erro interno do servidor",
       },
       { status: 500 }
     );
