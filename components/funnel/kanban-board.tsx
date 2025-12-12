@@ -28,7 +28,12 @@ import {
   Edit2,
   Trash2,
   MessageSquare,
-  Clock
+  Clock,
+  Calendar,
+  Hash,
+  ExternalLink,
+  Star,
+  Building2
 } from "lucide-react"
 import { ActionMenu } from "@/components/ui/action-menu"
 import type { FunnelStage, FunnelLead } from "@/lib/funnel-api"
@@ -85,6 +90,37 @@ function formatRelativeDate(dateString: string | Date | undefined): string {
   if (diffDays < 7) return `${diffDays} dias atrás`
   if (diffDays < 30) return `${Math.floor(diffDays / 7)} sem. atrás`
   return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
+}
+
+function formatExpectedCloseDate(dateString: string | undefined): { text: string; isOverdue: boolean; isDueSoon: boolean } {
+  if (!dateString) return { text: "", isOverdue: false, isDueSoon: false }
+
+  const date = new Date(dateString)
+  const now = new Date()
+  now.setHours(0, 0, 0, 0)
+  date.setHours(0, 0, 0, 0)
+
+  const diffMs = date.getTime() - now.getTime()
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+
+  if (diffDays < 0) {
+    return { text: `Atrasado ${Math.abs(diffDays)}d`, isOverdue: true, isDueSoon: false }
+  }
+  if (diffDays === 0) {
+    return { text: "Vence hoje", isOverdue: false, isDueSoon: true }
+  }
+  if (diffDays <= 3) {
+    return { text: `Vence em ${diffDays}d`, isOverdue: false, isDueSoon: true }
+  }
+  if (diffDays <= 7) {
+    return { text: `Vence em ${diffDays}d`, isOverdue: false, isDueSoon: false }
+  }
+  return { text: date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }), isOverdue: false, isDueSoon: false }
+}
+
+function truncateId(id: string, length: number = 8): string {
+  if (!id) return ""
+  return id.length > length ? `${id.slice(0, length)}...` : id
 }
 
 // ========================================
@@ -179,6 +215,8 @@ const LeadCard = memo(function LeadCard({ lead, onEdit, onDelete, onSendFollowUp
     },
   ]
 
+  const expectedClose = formatExpectedCloseDate(lead.expectedCloseDate)
+
   return (
     <div className="relative group">
       {closestEdge === 'top' && <DropIndicator edge="top" />}
@@ -193,27 +231,27 @@ const LeadCard = memo(function LeadCard({ lead, onEdit, onDelete, onSendFollowUp
           dragState === 'over' && "ring-2 ring-primary/50 bg-primary/5"
         )}
       >
-        {/* Header */}
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2 flex-1 min-w-0">
+        {/* Header com ID e Prioridade */}
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <div className="flex items-center gap-1.5">
             <GripVertical className="h-4 w-4 text-muted-foreground/50 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
-            <div className="min-w-0 flex-1">
-              <h4 className="font-semibold text-sm truncate leading-tight">{lead.name}</h4>
-              <div className="flex items-center gap-2 mt-1">
-                {lead.email && (
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Mail className="h-3 w-3" />
-                    <span className="truncate max-w-[120px]">{lead.email}</span>
-                  </div>
-                )}
-              </div>
-              {lead.phone && (
-                <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
-                  <Phone className="h-3 w-3" />
-                  <span>{lead.phone}</span>
-                </div>
+            <Badge
+              variant="secondary"
+              className={cn(
+                "text-[10px] px-1.5 py-0 h-5 font-medium",
+                priority.bg,
+                priority.text,
+                priority.border
               )}
-            </div>
+            >
+              {priority.label}
+            </Badge>
+            {lead.rdstationDealId && (
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 bg-orange-50 text-orange-600 border-orange-200 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800">
+                <ExternalLink className="h-2.5 w-2.5 mr-0.5" />
+                RD
+              </Badge>
+            )}
           </div>
 
           <ActionMenu
@@ -230,36 +268,89 @@ const LeadCard = memo(function LeadCard({ lead, onEdit, onDelete, onSendFollowUp
           />
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between mt-3 pt-2 border-t border-border/50">
+        {/* Nome e ID */}
+        <div className="mb-2">
+          <h4 className="font-semibold text-sm truncate leading-tight">{lead.name}</h4>
+          <div className="flex items-center gap-2 mt-0.5">
+            <span className="text-[10px] text-muted-foreground font-mono flex items-center gap-0.5">
+              <Hash className="h-2.5 w-2.5" />
+              {truncateId(lead.id)}
+            </span>
+            {lead.source && (
+              <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                <Building2 className="h-2.5 w-2.5" />
+                {lead.source}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Contato */}
+        <div className="space-y-1 mb-2">
+          {lead.email && (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Mail className="h-3 w-3 flex-shrink-0" />
+              <span className="truncate">{lead.email}</span>
+            </div>
+          )}
+          {lead.phone && (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Phone className="h-3 w-3 flex-shrink-0" />
+              <span>{lead.phone}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Valor e Data de Fechamento */}
+        <div className="flex items-center justify-between pt-2 border-t border-border/50">
           <div className="flex items-center gap-2">
             {lead.value && lead.value > 0 ? (
               <div className="flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                <DollarSign className="h-3 w-3" />
+                <DollarSign className="h-3.5 w-3.5" />
                 {lead.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
               </div>
-            ) : null}
+            ) : (
+              <span className="text-[10px] text-muted-foreground">Sem valor</span>
+            )}
           </div>
 
           <div className="flex items-center gap-1.5">
+            {expectedClose.text && (
+              <span className={cn(
+                "text-[10px] flex items-center gap-0.5 px-1.5 py-0.5 rounded",
+                expectedClose.isOverdue && "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
+                expectedClose.isDueSoon && !expectedClose.isOverdue && "bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400",
+                !expectedClose.isOverdue && !expectedClose.isDueSoon && "text-muted-foreground"
+              )}>
+                <Calendar className="h-2.5 w-2.5" />
+                {expectedClose.text}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Rodapé com Tempo e Tags */}
+        <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/30">
+          <div className="flex items-center gap-1">
             {lead.createdAt && (
               <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
                 <Clock className="h-2.5 w-2.5" />
                 {formatRelativeDate(lead.createdAt)}
               </span>
             )}
-            <Badge
-              variant="secondary"
-              className={cn(
-                "text-[10px] px-1.5 py-0 h-5 font-medium",
-                priority.bg,
-                priority.text,
-                priority.border
-              )}
-            >
-              {priority.label}
-            </Badge>
+            {lead.lastContactAt && (
+              <span className="text-[10px] text-muted-foreground flex items-center gap-0.5 ml-2">
+                <MessageSquare className="h-2.5 w-2.5" />
+                {formatRelativeDate(lead.lastContactAt)}
+              </span>
+            )}
           </div>
+
+          {lead._count?.followUps && lead._count.followUps > 0 && (
+            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
+              {lead._count.followUps} follow-ups
+            </Badge>
+          )}
         </div>
 
         {/* Tags */}

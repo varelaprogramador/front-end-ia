@@ -46,6 +46,8 @@ export interface FunnelLead {
   whatsappProfileName?: string // Nome do perfil no WhatsApp
   whatsappProfilePic?: string // URL da foto do perfil
   evolutionInstanceId?: string // ID da instância Evolution vinculada
+  // Integração com RD Station CRM
+  rdstationDealId?: string // ID do deal no RD Station CRM
   order: number
   createdAt: string
   updatedAt: string
