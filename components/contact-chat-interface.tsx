@@ -125,21 +125,34 @@ export function ContactChatInterface({ contactId, agentId }: ContactChatInterfac
     const cleanupNewMessage = onNewMessage((newMessage) => {
       console.log(`📨 [WEBSOCKET] Nova mensagem recebida:`, newMessage)
 
-      // Extrair o chatId do contactId (remover @s.whatsapp.net se necessário)
-      const normalizedContactId = contactId.split('@')[0]
-      const normalizedChatId = (newMessage.chatId || '').split('@')[0]
-      const normalizedSenderId = (newMessage.senderId || '').split('@')[0]
+      // Verificar se é um grupo (chatId contém @g.us)
+      const isGroupContact = contactId.includes('@g.us')
 
-      // Verificar se a mensagem é para este contato
-      // - Por chatId (formato completo ou normalizado)
-      // - Por senderId (para mensagens recebidas do contato)
-      // - Mensagens da IA com chatId correspondente
-      const isForThisContact =
-        newMessage.chatId === contactId ||
-        normalizedChatId === normalizedContactId ||
-        newMessage.senderId === contactId ||
-        normalizedSenderId === normalizedContactId ||
-        (newMessage.isAiResponse && newMessage.chatId && (newMessage.chatId === contactId || normalizedChatId === normalizedContactId))
+      // Para grupos: comparar chatId diretamente
+      // Para privados: comparar chatId ou senderId
+      let isForThisContact = false
+
+      if (isGroupContact) {
+        // Para grupos, apenas verificar se o chatId da mensagem é igual ao contactId (grupo)
+        isForThisContact = newMessage.chatId === contactId
+        console.log(`👥 [WEBSOCKET] Verificando mensagem de GRUPO:`, {
+          contactId,
+          msgChatId: newMessage.chatId,
+          isMatch: isForThisContact
+        })
+      } else {
+        // Para conversas privadas, verificar chatId ou senderId
+        const normalizedContactId = contactId.split('@')[0]
+        const normalizedChatId = (newMessage.chatId || '').split('@')[0]
+        const normalizedSenderId = (newMessage.senderId || '').split('@')[0]
+
+        isForThisContact =
+          newMessage.chatId === contactId ||
+          normalizedChatId === normalizedContactId ||
+          newMessage.senderId === contactId ||
+          normalizedSenderId === normalizedContactId ||
+          (newMessage.isAiResponse && newMessage.chatId && (newMessage.chatId === contactId || normalizedChatId === normalizedContactId))
+      }
 
       if (isForThisContact) {
         setMessages((prev) => {
@@ -184,11 +197,9 @@ export function ContactChatInterface({ contactId, agentId }: ContactChatInterfac
       } else {
         console.log(`⏭️ [WEBSOCKET] Mensagem ignorada - não é para este contato`, {
           contactId,
-          normalizedContactId,
+          isGroupContact,
           msgChatId: newMessage.chatId,
-          normalizedChatId,
           msgSenderId: newMessage.senderId,
-          normalizedSenderId,
           isAiResponse: newMessage.isAiResponse
         })
       }
@@ -1201,13 +1212,10 @@ export function ContactChatInterface({ contactId, agentId }: ContactChatInterfac
                     {!alignRight && showAvatar && (
                       <div className="mr-2 mt-1 flex-shrink-0">
                         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-xs font-semibold">
-                          {contactInfo?.isGroup ? (
-                            <Users className="h-4 w-4" />
-                          ) : (
-                            <span>
-                              {(message.senderName || contactName).charAt(0).toUpperCase()}
-                            </span>
-                          )}
+                          {/* Para grupos, mostrar inicial do remetente; para privados, inicial do contato */}
+                          <span>
+                            {(message.senderName || message.senderId || contactName).charAt(0).toUpperCase()}
+                          </span>
                         </div>
                       </div>
                     )}
