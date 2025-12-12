@@ -11,6 +11,25 @@ import { API_BASE_URL } from "./api-config"
 
 export type ConnectionStatus = "connected" | "connecting" | "disconnected" | "error"
 
+// Tipos para eventos do Funil de Vendas
+export type FunnelWebSocketEvent =
+  | "funnel:lead:created"
+  | "funnel:lead:updated"
+  | "funnel:lead:deleted"
+  | "funnel:lead:stage_changed"
+
+export interface FunnelWebSocketPayload {
+  event: FunnelWebSocketEvent
+  funnelId: string
+  leadId: string
+  data: {
+    lead?: any
+    previousStageId?: string
+    newStageId?: string
+    rdstationDealId?: string
+  }
+}
+
 interface SocketContextValue {
   socket: Socket | null
   status: ConnectionStatus
@@ -22,11 +41,18 @@ interface SocketContextValue {
   joinContactRoom: (agentId: string, contactId: string) => void
   leaveContactRoom: (agentId: string, contactId: string) => void
 
+  // Métodos para Funil de Vendas
+  joinFunnelRoom: (funnelId: string) => void
+  leaveFunnelRoom: (funnelId: string) => void
+
   // Eventos customizados
   onNewMessage: (callback: (message: Message) => void) => () => void
   onMessageUpdate: (callback: (message: Message) => void) => () => void
   onContactUpdate: (callback: (contact: Contact) => void) => () => void
   onTyping: (callback: (data: { contactId: string; isTyping: boolean }) => void) => () => void
+
+  // Eventos do Funil de Vendas
+  onFunnelUpdate: (callback: (payload: FunnelWebSocketPayload) => void) => () => void
 }
 
 // ===================================================
@@ -53,6 +79,7 @@ export function SocketProvider({ children }: SocketProviderProps) {
   const messageUpdateCallbacksRef = useRef<Set<(message: Message) => void>>(new Set())
   const contactUpdateCallbacksRef = useRef<Set<(contact: Contact) => void>>(new Set())
   const typingCallbacksRef = useRef<Set<(data: { contactId: string; isTyping: boolean }) => void>>(new Set())
+  const funnelUpdateCallbacksRef = useRef<Set<(payload: FunnelWebSocketPayload) => void>>(new Set())
 
   // ===================================================
   // Inicialização do Socket
@@ -62,7 +89,7 @@ export function SocketProvider({ children }: SocketProviderProps) {
     console.log("🔌 [SOCKET] Inicializando conexão com:", API_BASE_URL)
 
     const socketInstance = io(API_BASE_URL, {
-      transports: ["websocket", "polling"],
+      transports: ["websocket"], // Match backend configuration (websocket only)
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
@@ -138,6 +165,12 @@ export function SocketProvider({ children }: SocketProviderProps) {
       typingCallbacksRef.current.forEach(callback => callback(data))
     })
 
+    // Evento de atualização do funil de vendas
+    socketInstance.on("funnel:update", (payload: FunnelWebSocketPayload) => {
+      console.log("📊 [SOCKET] Atualização do funil:", payload)
+      funnelUpdateCallbacksRef.current.forEach(callback => callback(payload))
+    })
+
     setSocket(socketInstance)
 
     // Cleanup ao desmontar
@@ -190,6 +223,29 @@ export function SocketProvider({ children }: SocketProviderProps) {
   }, [socket])
 
   // ===================================================
+  // Funnel Room Management
+  // ===================================================
+
+  const joinFunnelRoom = useCallback((funnelId: string) => {
+    if (!socket) {
+      console.warn("⚠️ [SOCKET] Socket não conectado")
+      return
+    }
+
+    const room = `funnel:${funnelId}`
+    console.log("📊 [SOCKET] Entrando no room do funil:", room)
+    socket.emit("join_room", { room })
+  }, [socket])
+
+  const leaveFunnelRoom = useCallback((funnelId: string) => {
+    if (!socket) return
+
+    const room = `funnel:${funnelId}`
+    console.log("📊 [SOCKET] Saindo do room do funil:", room)
+    socket.emit("leave_room", { room })
+  }, [socket])
+
+  // ===================================================
   // Event Listeners Customizados
   // ===================================================
 
@@ -226,6 +282,14 @@ export function SocketProvider({ children }: SocketProviderProps) {
     }
   }, [])
 
+  const onFunnelUpdate = useCallback((callback: (payload: FunnelWebSocketPayload) => void) => {
+    funnelUpdateCallbacksRef.current.add(callback)
+
+    return () => {
+      funnelUpdateCallbacksRef.current.delete(callback)
+    }
+  }, [])
+
   // ===================================================
   // Context Value
   // ===================================================
@@ -238,10 +302,13 @@ export function SocketProvider({ children }: SocketProviderProps) {
     leaveAgentRoom,
     joinContactRoom,
     leaveContactRoom,
+    joinFunnelRoom,
+    leaveFunnelRoom,
     onNewMessage,
     onMessageUpdate,
     onContactUpdate,
     onTyping,
+    onFunnelUpdate,
   }
 
   return (
@@ -351,4 +418,51 @@ export function useTypingIndicator(contactId: string) {
   }, [socket, contactId])
 
   return { isTyping, emitTyping }
+}
+
+// ===================================================
+// Hook para Funil de Vendas com WebSocket
+// ===================================================
+
+export function useFunnelWebSocket(
+  funnelId: string | null,
+  onUpdate: (payload: FunnelWebSocketPayload) => void
+) {
+  const { joinFunnelRoom, leaveFunnelRoom, onFunnelUpdate, isConnected } = useSocket()
+  const onUpdateRef = useRef(onUpdate)
+
+  // Manter ref atualizado
+  useEffect(() => {
+    onUpdateRef.current = onUpdate
+  }, [onUpdate])
+
+  // Entrar/sair do room do funil
+  useEffect(() => {
+    if (!isConnected || !funnelId) return
+
+    console.log("📊 [FUNNEL WS] Inscrevendo no funil:", funnelId)
+    joinFunnelRoom(funnelId)
+
+    return () => {
+      console.log("📊 [FUNNEL WS] Desinscrevendo do funil:", funnelId)
+      leaveFunnelRoom(funnelId)
+    }
+  }, [funnelId, isConnected, joinFunnelRoom, leaveFunnelRoom])
+
+  // Escutar atualizações do funil
+  useEffect(() => {
+    if (!funnelId) return
+
+    const cleanup = onFunnelUpdate((payload) => {
+      // Filtrar apenas eventos do funil atual
+      if (payload.funnelId !== funnelId) return
+
+      console.log("📊 [FUNNEL WS] Evento recebido:", payload.event, payload)
+      onUpdateRef.current(payload)
+    })
+
+    return cleanup
+  }, [funnelId, onFunnelUpdate])
+
+  return { isConnected }
 }

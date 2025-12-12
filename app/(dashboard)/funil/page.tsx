@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
@@ -24,7 +24,12 @@ import {
   Settings,
   Bot,
   Trash2,
+  Search,
+  X,
+  Wifi,
+  WifiOff,
 } from "lucide-react"
+import { Input } from "@/components/ui/input"
 import { useToast } from "@/components/ui/use-toast"
 import { useUserId } from "@/lib/use-user-id"
 import {
@@ -41,6 +46,7 @@ import { LeadDialog } from "@/components/funnel/lead-dialog"
 import { StageDialog } from "@/components/funnel/stage-dialog"
 import { FunnelDialog } from "@/components/funnel/funnel-dialog"
 import { type FunnelFormData } from "@/components/funnel/funnel-form-step1"
+import { useFunnelWebSocket, type FunnelWebSocketPayload } from "@/lib/socket-context"
 
 export default function FunilPage() {
   const router = useRouter()
@@ -52,6 +58,7 @@ export default function FunilPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [funnels, setFunnels] = useState<Funnel[]>([])
   const [selectedFunnel, setSelectedFunnel] = useState<Funnel | null>(null)
+  const [searchQuery, setSearchQuery] = useState("")
 
   // Dialogs
   const [showFunnelDialog, setShowFunnelDialog] = useState(false)
@@ -64,6 +71,114 @@ export default function FunilPage() {
 
   // Evolution Instance for WhatsApp integration
   const [evolutionInstanceId, setEvolutionInstanceId] = useState<string | undefined>(undefined)
+
+  // WebSocket handler para atualizações em tempo real
+  const handleFunnelWebSocketUpdate = useCallback((payload: FunnelWebSocketPayload) => {
+    console.log("📊 [FUNNEL] WebSocket update received:", payload)
+
+    setSelectedFunnel((prevFunnel) => {
+      if (!prevFunnel || prevFunnel.id !== payload.funnelId) return prevFunnel
+
+      const updatedStages = [...prevFunnel.stages]
+
+      switch (payload.event) {
+        case "funnel:lead:created": {
+          // Adicionar lead ao stage correto
+          const newLead = payload.data.lead
+          const stageIndex = updatedStages.findIndex(s => s.id === newLead.stageId)
+          if (stageIndex !== -1) {
+            updatedStages[stageIndex] = {
+              ...updatedStages[stageIndex],
+              leads: [...(updatedStages[stageIndex].leads || []), newLead],
+            }
+          }
+          break
+        }
+
+        case "funnel:lead:updated":
+        case "funnel:lead:stage_changed": {
+          const updatedLead = payload.data.lead
+          const previousStageId = payload.data.previousStageId
+          const newStageId = payload.data.newStageId
+
+          // Se mudou de stage, remover do anterior e adicionar no novo
+          if (previousStageId && newStageId && previousStageId !== newStageId) {
+            // Remover do stage anterior
+            const prevStageIndex = updatedStages.findIndex(s => s.id === previousStageId)
+            if (prevStageIndex !== -1) {
+              updatedStages[prevStageIndex] = {
+                ...updatedStages[prevStageIndex],
+                leads: (updatedStages[prevStageIndex].leads || []).filter(l => l.id !== payload.leadId),
+              }
+            }
+
+            // Adicionar no novo stage
+            const newStageIndex = updatedStages.findIndex(s => s.id === newStageId)
+            if (newStageIndex !== -1) {
+              updatedStages[newStageIndex] = {
+                ...updatedStages[newStageIndex],
+                leads: [...(updatedStages[newStageIndex].leads || []), updatedLead],
+              }
+            }
+          } else {
+            // Apenas atualizar o lead no lugar
+            for (let i = 0; i < updatedStages.length; i++) {
+              const leadIndex = (updatedStages[i].leads || []).findIndex(l => l.id === payload.leadId)
+              if (leadIndex !== -1) {
+                updatedStages[i] = {
+                  ...updatedStages[i],
+                  leads: updatedStages[i].leads!.map(l =>
+                    l.id === payload.leadId ? updatedLead : l
+                  ),
+                }
+                break
+              }
+            }
+          }
+          break
+        }
+
+        case "funnel:lead:deleted": {
+          // Remover lead de qualquer stage
+          for (let i = 0; i < updatedStages.length; i++) {
+            const hasLead = (updatedStages[i].leads || []).some(l => l.id === payload.leadId)
+            if (hasLead) {
+              updatedStages[i] = {
+                ...updatedStages[i],
+                leads: (updatedStages[i].leads || []).filter(l => l.id !== payload.leadId),
+              }
+              break
+            }
+          }
+          break
+        }
+      }
+
+      return {
+        ...prevFunnel,
+        stages: updatedStages,
+      }
+    })
+
+    // Mostrar toast de notificação
+    const eventMessages: Record<string, string> = {
+      "funnel:lead:created": "Novo lead adicionado via RD Station",
+      "funnel:lead:updated": "Lead atualizado via RD Station",
+      "funnel:lead:stage_changed": "Lead movido para outro estágio via RD Station",
+      "funnel:lead:deleted": "Lead removido via RD Station",
+    }
+
+    toast({
+      title: "Funil atualizado",
+      description: eventMessages[payload.event] || "Atualização recebida",
+    })
+  }, [toast])
+
+  // Hook de WebSocket para o funil selecionado
+  const { isConnected: wsConnected } = useFunnelWebSocket(
+    selectedFunnel?.id || null,
+    handleFunnelWebSocketUpdate
+  )
 
   // Load funnels
   const loadFunnels = async (showRefreshLoader = false, selectNewFunnel = false) => {
@@ -375,6 +490,23 @@ export default function FunilPage() {
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Workflow className="h-6 w-6" />
             Funil de Vendas
+            {selectedFunnel && (
+              <span
+                className={`inline-flex items-center gap-1 text-xs font-normal px-2 py-1 rounded-full ${
+                  wsConnected
+                    ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                    : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+                }`}
+                title={wsConnected ? "Conectado - Atualizações em tempo real" : "Reconectando..."}
+              >
+                {wsConnected ? (
+                  <Wifi className="h-3 w-3" />
+                ) : (
+                  <WifiOff className="h-3 w-3" />
+                )}
+                {wsConnected ? "Ao vivo" : "Offline"}
+              </span>
+            )}
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
             Gerencie seus leads e acompanhe o progresso das vendas
@@ -547,10 +679,50 @@ export default function FunilPage() {
         </div>
       )}
 
+      {/* Search Bar */}
+      {selectedFunnel && (
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por nome ou ID do lead..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 pr-9"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          {searchQuery && (
+            <Badge variant="secondary" className="text-xs">
+              Filtrando: &quot;{searchQuery}&quot;
+            </Badge>
+          )}
+        </div>
+      )}
+
       {/* Kanban Board */}
       {selectedFunnel && selectedFunnel.stages && (
         <KanbanBoard
-          stages={selectedFunnel.stages}
+          stages={selectedFunnel.stages.map(stage => ({
+            ...stage,
+            leads: stage.leads?.filter(lead => {
+              if (!searchQuery) return true
+              const query = searchQuery.toLowerCase()
+              return (
+                lead.name?.toLowerCase().includes(query) ||
+                lead.id?.toLowerCase().includes(query) ||
+                lead.email?.toLowerCase().includes(query) ||
+                lead.phone?.toLowerCase().includes(query)
+              )
+            })
+          }))}
           onMoveLead={handleMoveLead}
           onEditLead={(lead) => {
             setEditingLead(lead)
