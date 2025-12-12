@@ -21,6 +21,12 @@ interface WorkspaceFormData {
   kommoSubdomain: string;
   kommoAccessToken: string;
   kommodPipelineId: string;
+  rdstationEnabled: boolean;
+  rdstationClientId: string;
+  rdstationClientSecret: string;
+  rdstationCode: string;
+  rdstationAccessToken: string;
+  rdstationRefreshToken: string;
   selectedCredentials: string[];
 }
 
@@ -115,6 +121,11 @@ export default function WorkspaceFormStep3({
         kommoSubdomain: formData.kommoEnabled ? formData.kommoSubdomain : undefined,
         kommoAccessToken: formData.kommoEnabled ? formData.kommoAccessToken : undefined,
         kommodPipelineId: formData.kommoEnabled ? formData.kommodPipelineId : undefined,
+        rdstationClientId: formData.rdstationEnabled ? formData.rdstationClientId : undefined,
+        rdstationClientSecret: formData.rdstationEnabled ? formData.rdstationClientSecret : undefined,
+        rdstationCode: formData.rdstationEnabled ? formData.rdstationCode : undefined,
+        rdstationAccessToken: formData.rdstationEnabled ? formData.rdstationAccessToken : undefined,
+        rdstationRefreshToken: formData.rdstationEnabled ? formData.rdstationRefreshToken : undefined,
         credentialIds: formData.selectedCredentials,
       };
 
