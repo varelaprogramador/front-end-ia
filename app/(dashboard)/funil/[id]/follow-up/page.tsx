@@ -44,7 +44,11 @@ import {
   History,
   GitBranch,
   Users,
-  Plus
+  Plus,
+  Smartphone,
+  Search,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { useUserId } from "@/lib/use-user-id"
@@ -57,6 +61,7 @@ import {
   type LeadInFollowUpFlow,
   type FunnelLead,
 } from "@/lib/funnel-api"
+import { evolutionInstanceService, type EvolutionInstance } from "@/lib/evolution-instance-api"
 import {
   FollowUpFlowBoard,
   type FollowUpStep,
@@ -71,7 +76,7 @@ const followUpAgentSchema = z.object({
   temperature: z.number().min(0).max(2),
   maxTokens: z.number().min(50).max(4000),
   systemPrompt: z.string().min(1, "Instruções de sistema obrigatórias"),
-  followUpPrompt: z.string().optional(),
+  followUpPrompt: z.string().optional().default(""),
   autoFollowUp: z.boolean(),
   followUpDelayHours: z.number().min(1).max(168),
   maxFollowUps: z.number().min(1).max(10),
@@ -79,7 +84,8 @@ const followUpAgentSchema = z.object({
   workingHoursEnd: z.string(),
   workingDays: z.array(z.number()),
   timezone: z.string(),
-  openaiApiKey: z.string().optional(),
+  evolutionInstanceId: z.string().min(1, "Selecione uma instância Evolution"),
+  openaiApiKey: z.string().optional().default(""),
 })
 
 type FollowUpAgentFormData = z.infer<typeof followUpAgentSchema>
@@ -166,6 +172,9 @@ export default function FollowUpAgentPage({ params }: { params: { id: string } }
   const [flowLoading, setFlowLoading] = useState(false)
   const [availableLeads, setAvailableLeads] = useState<FunnelLead[]>([])
 
+  // Evolution instances state
+  const [evolutionInstances, setEvolutionInstances] = useState<EvolutionInstance[]>([])
+
   const {
     register,
     handleSubmit,
@@ -190,6 +199,7 @@ export default function FollowUpAgentPage({ params }: { params: { id: string } }
       workingHoursEnd: "18:00",
       workingDays: [1, 2, 3, 4, 5],
       timezone: "America/Sao_Paulo",
+      evolutionInstanceId: "",
       openaiApiKey: "",
     },
   })
@@ -216,6 +226,18 @@ export default function FollowUpAgentPage({ params }: { params: { id: string } }
         setAvailableLeads(leads)
       }
 
+      // Load Evolution instances for the agent (from configIa)
+      if (funnelResponse.data?.configIaId) {
+        try {
+          const instancesResponse = await evolutionInstanceService.getInstancesByConfigIaId(funnelResponse.data.configIaId)
+          if (instancesResponse.success && instancesResponse.data) {
+            setEvolutionInstances(instancesResponse.data)
+          }
+        } catch (error) {
+          console.error("Error loading Evolution instances:", error)
+        }
+      }
+
       // Load follow-up agent
       const agentResponse = await funnelService.getFollowUpAgent(funnelId)
       if (agentResponse.data) {
@@ -235,6 +257,7 @@ export default function FollowUpAgentPage({ params }: { params: { id: string } }
           workingHoursEnd: agentResponse.data.workingHoursEnd || "18:00",
           workingDays: agentResponse.data.workingDays,
           timezone: agentResponse.data.timezone,
+          evolutionInstanceId: agentResponse.data.evolutionInstanceId || "",
           openaiApiKey: agentResponse.data.openaiApiKey || "",
         })
       }
@@ -305,18 +328,55 @@ export default function FollowUpAgentPage({ params }: { params: { id: string } }
   const onSubmit = async (data: FollowUpAgentFormData) => {
     try {
       setSaving(true)
-      await funnelService.saveFollowUpAgent(funnelId, data)
-      toast({ title: "Agente salvo com sucesso!" })
-      await loadData()
+      console.log("✅ Form validation passed!")
+      console.log("📤 Submitting follow-up agent data:", JSON.stringify(data, null, 2))
+
+      // Clean up data before sending
+      const cleanData = {
+        ...data,
+        systemPrompt: data.systemPrompt || "",
+        followUpPrompt: data.followUpPrompt || "",
+        openaiApiKey: data.openaiApiKey || "",
+        evolutionInstanceId: data.evolutionInstanceId || null,
+      }
+
+      console.log("📤 Clean data to send:", JSON.stringify(cleanData, null, 2))
+
+      const response = await funnelService.saveFollowUpAgent(funnelId, cleanData)
+      console.log("📥 Save response:", response)
+
+      if (response.success) {
+        toast({ title: "Agente salvo com sucesso!" })
+        await loadData()
+      } else {
+        throw new Error(response.error || "Erro ao salvar")
+      }
     } catch (error) {
-      console.error("Error saving agent:", error)
+      console.error("❌ Error saving agent:", error)
       toast({
         title: "Erro ao salvar agente",
+        description: error instanceof Error ? error.message : "Erro desconhecido",
         variant: "destructive",
       })
     } finally {
       setSaving(false)
     }
+  }
+
+  const onSubmitError = (errors: any) => {
+    console.error("❌ Form validation errors:", errors)
+    console.error("❌ Error keys:", Object.keys(errors))
+    console.error("❌ Full error details:", JSON.stringify(errors, null, 2))
+
+    const errorMessages = Object.entries(errors).map(([key, value]: [string, any]) => {
+      return `${key}: ${value?.message || 'erro desconhecido'}`
+    }).join(', ')
+
+    toast({
+      title: "Erro de validação",
+      description: errorMessages || "Verifique os campos do formulário",
+      variant: "destructive",
+    })
   }
 
   const toggleAgent = async () => {
@@ -465,6 +525,8 @@ export default function FollowUpAgentPage({ params }: { params: { id: string } }
   }
 
   const [addingLeadId, setAddingLeadId] = useState<string | null>(null)
+  const [leadSearchTerm, setLeadSearchTerm] = useState("")
+  const [showAllLeads, setShowAllLeads] = useState(false)
 
   const handleAddLeadToFlow = async (leadId: string) => {
     setAddingLeadId(leadId)
@@ -537,6 +599,20 @@ export default function FollowUpAgentPage({ params }: { params: { id: string } }
   const leadsNotInFlow = availableLeads.filter(
     lead => !leadsInFlow.some(lf => lf.lead.id === lead.id)
   )
+
+  // Filter leads by search term
+  const filteredLeadsNotInFlow = leadsNotInFlow.filter(lead =>
+    lead.name.toLowerCase().includes(leadSearchTerm.toLowerCase()) ||
+    (lead.phone && lead.phone.includes(leadSearchTerm)) ||
+    (lead.email && lead.email.toLowerCase().includes(leadSearchTerm.toLowerCase()))
+  )
+
+  // Determine how many leads to show (10 initial, all when expanded)
+  const INITIAL_LEADS_COUNT = 10
+  const leadsToDisplay = showAllLeads
+    ? filteredLeadsNotInFlow
+    : filteredLeadsNotInFlow.slice(0, INITIAL_LEADS_COUNT)
+  const hasMoreLeads = filteredLeadsNotInFlow.length > INITIAL_LEADS_COUNT
 
   return (
     <div className="container mx-auto px-4 py-6 space-y-6 max-w-6xl">
@@ -612,33 +688,79 @@ export default function FollowUpAgentPage({ params }: { params: { id: string } }
                 <CardTitle className="text-sm flex items-center gap-2">
                   <Users className="h-4 w-4" />
                   Adicionar Lead ao Fluxo
+                  <Badge variant="secondary" className="ml-2">
+                    {leadsNotInFlow.length} disponíveis
+                  </Badge>
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="flex gap-2 flex-wrap">
-                  {leadsNotInFlow.slice(0, 10).map(lead => (
-                    <Button
-                      key={lead.id}
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleAddLeadToFlow(lead.id)}
-                      disabled={addingLeadId === lead.id}
-                      className="gap-1"
-                    >
-                      {addingLeadId === lead.id ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        <Plus className="h-3 w-3" />
-                      )}
-                      {lead.name}
-                    </Button>
-                  ))}
-                  {leadsNotInFlow.length > 10 && (
-                    <Badge variant="secondary">
-                      +{leadsNotInFlow.length - 10} mais
-                    </Badge>
-                  )}
+              <CardContent className="space-y-4">
+                {/* Search Input */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Pesquisar lead por nome, telefone ou email..."
+                    value={leadSearchTerm}
+                    onChange={(e) => {
+                      setLeadSearchTerm(e.target.value)
+                      setShowAllLeads(false) // Reset expansion when searching
+                    }}
+                    className="pl-9"
+                  />
                 </div>
+
+                {/* Leads List */}
+                {filteredLeadsNotInFlow.length === 0 ? (
+                  <div className="text-center py-4 text-muted-foreground text-sm">
+                    {leadSearchTerm
+                      ? `Nenhum lead encontrado para "${leadSearchTerm}"`
+                      : "Nenhum lead disponível"
+                    }
+                  </div>
+                ) : (
+                  <>
+                    <div className={`flex gap-2 flex-wrap ${showAllLeads ? "max-h-64 overflow-y-auto pr-2" : ""}`}>
+                      {leadsToDisplay.map(lead => (
+                        <Button
+                          key={lead.id}
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleAddLeadToFlow(lead.id)}
+                          disabled={addingLeadId === lead.id}
+                          className="gap-1"
+                        >
+                          {addingLeadId === lead.id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Plus className="h-3 w-3" />
+                          )}
+                          {lead.name}
+                        </Button>
+                      ))}
+                    </div>
+
+                    {/* Show More/Less Button */}
+                    {hasMoreLeads && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowAllLeads(!showAllLeads)}
+                        className="w-full mt-2"
+                      >
+                        {showAllLeads ? (
+                          <>
+                            <ChevronUp className="h-4 w-4 mr-2" />
+                            Ver menos
+                          </>
+                        ) : (
+                          <>
+                            <ChevronDown className="h-4 w-4 mr-2" />
+                            Ver mais {filteredLeadsNotInFlow.length - INITIAL_LEADS_COUNT} leads
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </>
+                )}
               </CardContent>
             </Card>
           )}
@@ -667,7 +789,11 @@ export default function FollowUpAgentPage({ params }: { params: { id: string } }
 
         {/* Configuration Tab */}
         <TabsContent value="config" className="space-y-6 mt-6">
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={(e) => {
+              console.log("📋 Form onSubmit event triggered")
+              console.log("📋 Form data:", watchedValues)
+              handleSubmit(onSubmit, onSubmitError)(e)
+            }} className="space-y-6">
             {/* Basic Settings */}
             <Card>
               <CardHeader>
@@ -679,12 +805,16 @@ export default function FollowUpAgentPage({ params }: { params: { id: string } }
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="name">Nome do Agente</Label>
+                    <Label htmlFor="name">Nome do Agente <span className="text-destructive">*</span></Label>
                     <Input
                       id="name"
                       {...register("name")}
                       placeholder="Agente de Follow-up"
+                      className={errors.name ? "border-destructive" : ""}
                     />
+                    {errors.name && (
+                      <p className="text-xs text-destructive mt-1">{errors.name.message}</p>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="model">Modelo de IA</Label>
@@ -716,6 +846,40 @@ export default function FollowUpAgentPage({ params }: { params: { id: string } }
                   />
                   <p className="text-xs text-muted-foreground mt-1">
                     Sua chave da API ficará segura e criptografada
+                  </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="evolutionInstanceId" className="flex items-center gap-2">
+                    <Smartphone className="h-4 w-4" />
+                    Instância Evolution (WhatsApp) <span className="text-destructive">*</span>
+                  </Label>
+                  <Select
+                    value={watchedValues.evolutionInstanceId || ""}
+                    onValueChange={(value) => setValue("evolutionInstanceId", value)}
+                  >
+                    <SelectTrigger className={errors.evolutionInstanceId ? "border-destructive" : ""}>
+                      <SelectValue placeholder="Selecione uma instância..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {evolutionInstances.length === 0 ? (
+                        <SelectItem value="none" disabled>
+                          Nenhuma instância disponível
+                        </SelectItem>
+                      ) : (
+                        evolutionInstances.map((instance) => (
+                          <SelectItem key={instance.id} value={instance.id}>
+                            {instance.instanceName} {instance.status === "open" ? "✅" : "⚪"}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                  {errors.evolutionInstanceId && (
+                    <p className="text-xs text-destructive mt-1">{errors.evolutionInstanceId.message}</p>
+                  )}
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Selecione qual instância do WhatsApp será usada para enviar os follow-ups
                   </p>
                 </div>
               </CardContent>
@@ -785,19 +949,21 @@ export default function FollowUpAgentPage({ params }: { params: { id: string } }
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <Label htmlFor="systemPrompt">Instruções de Sistema *</Label>
+                  <Label htmlFor="systemPrompt">
+                    Instruções de Sistema <span className="text-destructive">*</span>
+                  </Label>
                   <Textarea
                     id="systemPrompt"
                     {...register("systemPrompt")}
                     placeholder="Você é um assistente de vendas profissional. Seu objetivo é fazer follow-up com leads de forma amigável e não invasiva..."
                     rows={6}
-                    className="font-mono text-sm"
+                    className={`font-mono text-sm ${errors.systemPrompt ? "border-destructive" : ""}`}
                   />
                   {errors.systemPrompt && (
-                    <p className="text-sm text-destructive mt-1">{errors.systemPrompt.message}</p>
+                    <p className="text-xs text-destructive mt-1">{errors.systemPrompt.message}</p>
                   )}
                   <p className="text-xs text-muted-foreground mt-1">
-                    Define a personalidade e comportamento base do agente
+                    Define a personalidade e comportamento base do agente para gerar mensagens de follow-up.
                   </p>
                 </div>
 
@@ -887,7 +1053,11 @@ export default function FollowUpAgentPage({ params }: { params: { id: string } }
               <Button type="button" variant="outline" onClick={() => router.push("/funil")}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={saving}>
+              <Button
+                type="submit"
+                disabled={saving}
+                onClick={() => console.log("🖱️ Save button clicked!")}
+              >
                 {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 <Save className="h-4 w-4 mr-2" />
                 Salvar Configurações

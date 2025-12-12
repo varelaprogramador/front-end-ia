@@ -6,6 +6,8 @@ import { MainLayout } from "@/components/main-layout"
 import { ThemeProvider } from "@/components/theme-provider"
 import { DynamicLayout } from "@/components/dynamic-layout"
 import { DynamicFavicon } from "@/components/dynamic-favicon"
+import { NotificationProvider } from "@/contexts/notification-context"
+import { SocketProvider } from "@/lib/socket-context"
 import { Toaster } from "sonner"
 import NextTopLoader from "nextjs-toploader"
 import "./globals.css"
@@ -41,10 +43,14 @@ export default function RootLayout({
             speed={200}
           />
           <ThemeProvider defaultTheme="system" storageKey="ai-agent-theme">
-            <Suspense fallback={null}>
-              {children}
-            </Suspense>
-            <Toaster position="top-right" richColors expand={true} />
+            <SocketProvider>
+              <NotificationProvider>
+                <Suspense fallback={null}>
+                  {children}
+                </Suspense>
+                <Toaster position="top-right" richColors expand={true} />
+              </NotificationProvider>
+            </SocketProvider>
           </ThemeProvider>
         </body>
       </html>

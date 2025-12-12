@@ -9,6 +9,7 @@ import { BreadcrumbNavigation } from "./breadcrumb-navigation"
 import { WorkspaceHeader } from "./workspace-header"
 import { DynamicLayout } from "./dynamic-layout"
 import { AIHeadPreloader } from "./ai-head-preloader"
+import { NotificationBell } from "./notification-bell"
 import { SidebarProvider, useSidebar } from "@/contexts/sidebar-context"
 import { Button } from "@/components/ui/button"
 import { Menu, PanelLeftClose } from "lucide-react"
@@ -31,11 +32,11 @@ function MainLayoutContent({ children }: MainLayoutProps) {
           />
         )}
 
-        {/* Sidebar */}
+        {/* Sidebar - fixed position para não scrollar com o conteúdo */}
         <div className={`
           ${isCollapsed ? 'w-0 lg:w-16' : 'w-64'}
-          transition-all duration-300 ease-in-out
-          ${isMobile ? 'fixed left-0 top-0 h-full z-50' : 'relative'}
+          transition-all duration-300 ease-in-out flex-shrink-0
+          ${isMobile ? 'fixed left-0 top-0 h-full z-50' : 'fixed left-0 top-0 h-screen z-30'}
           ${isMobile && isCollapsed ? '-translate-x-full' : 'translate-x-0'}
         `}>
           <div className={`h-full ${isCollapsed && !isMobile ? 'overflow-hidden' : ''}`}>
@@ -43,8 +44,16 @@ function MainLayoutContent({ children }: MainLayoutProps) {
           </div>
         </div>
 
+        {/* Spacer para compensar a sidebar fixed */}
+        {!isMobile && (
+          <div className={`
+            ${isCollapsed ? 'w-0 lg:w-16' : 'w-64'}
+            transition-all duration-300 ease-in-out flex-shrink-0
+          `} />
+        )}
+
         <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-          <div className="border-b bg-card px-6 py-3">
+          <div className="border-b bg-card px-6 py-3 relative z-40">
             <div className="flex items-center gap-4">
               {/* Botão toggle sidebar */}
               <Button
@@ -64,6 +73,9 @@ function MainLayoutContent({ children }: MainLayoutProps) {
               <div className="flex-1 min-w-0">
                 <BreadcrumbNavigation />
               </div>
+
+              {/* Sino de notificações */}
+              <NotificationBell />
             </div>
           </div>
           <main className="flex-1 overflow-y-auto">{children}</main>

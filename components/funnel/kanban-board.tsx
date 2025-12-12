@@ -33,9 +33,11 @@ import {
   Hash,
   ExternalLink,
   Star,
-  Building2
+  Building2,
+  BellRing
 } from "lucide-react"
 import { ActionMenu } from "@/components/ui/action-menu"
+import { useNotifications } from "@/contexts/notification-context"
 import type { FunnelStage, FunnelLead } from "@/lib/funnel-api"
 
 // ========================================
@@ -131,6 +133,10 @@ const LeadCard = memo(function LeadCard({ lead, onEdit, onDelete, onSendFollowUp
   const ref = useRef<HTMLDivElement>(null)
   const [dragState, setDragState] = useState<DragState>('idle')
   const [closestEdge, setClosestEdge] = useState<Edge | null>(null)
+  const { isLeadHighlighted, getLeadHighlightType } = useNotifications()
+
+  const isHighlighted = isLeadHighlighted(lead.id)
+  const highlightType = getLeadHighlightType(lead.id)
 
   useEffect(() => {
     const element = ref.current
@@ -228,9 +234,20 @@ const LeadCard = memo(function LeadCard({ lead, onEdit, onDelete, onSendFollowUp
           "hover:shadow-md hover:border-primary/30 hover:-translate-y-0.5",
           "group-hover:shadow-md",
           dragState === 'dragging' && "opacity-50 shadow-xl scale-[1.02] rotate-1",
-          dragState === 'over' && "ring-2 ring-primary/50 bg-primary/5"
+          dragState === 'over' && "ring-2 ring-primary/50 bg-primary/5",
+          // Highlight para leads que saíram do follow-up
+          isHighlighted && "ring-2 ring-yellow-400 border-yellow-400 bg-yellow-50/50 dark:bg-yellow-900/20 animate-pulse shadow-lg shadow-yellow-200/50 dark:shadow-yellow-900/30"
         )}
       >
+        {/* Indicador de saída do follow-up */}
+        {isHighlighted && (
+          <div className="absolute -top-2 -right-2 z-10">
+            <div className="bg-yellow-400 text-yellow-900 rounded-full p-1.5 shadow-lg animate-bounce">
+              <BellRing className="h-3.5 w-3.5" />
+            </div>
+          </div>
+        )}
+
         {/* Header com ID e Prioridade */}
         <div className="flex items-start justify-between gap-2 mb-2">
           <div className="flex items-center gap-1.5">
@@ -250,6 +267,12 @@ const LeadCard = memo(function LeadCard({ lead, onEdit, onDelete, onSendFollowUp
               <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 bg-orange-50 text-orange-600 border-orange-200 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800">
                 <ExternalLink className="h-2.5 w-2.5 mr-0.5" />
                 RD
+              </Badge>
+            )}
+            {isHighlighted && (
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 bg-yellow-100 text-yellow-700 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-700 animate-pulse">
+                <BellRing className="h-2.5 w-2.5 mr-0.5" />
+                Respondeu!
               </Badge>
             )}
           </div>

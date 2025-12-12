@@ -169,6 +169,16 @@ class EvolutionInstanceService {
     console.log("📊 [API] Obtendo status via GET /:id/status");
     return this.makeRequest<ConnectionStatus>(`/${id}/status`);
   }
+
+  // GET /evolution-instances/config-ia/:configIaId - Obter instâncias por ConfigIA
+  async getInstancesByConfigIaId(
+    configIaId: string
+  ): Promise<ApiResponse<EvolutionInstance[]>> {
+    if (!configIaId) {
+      throw new Error("ConfigIaId é obrigatório");
+    }
+    return this.makeRequest<EvolutionInstance[]>(`/config-ia/${configIaId}`);
+  }
 }
 
 // Exportar instância singleton

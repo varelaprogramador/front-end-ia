@@ -35,6 +35,7 @@ const leadSchema = z.object({
   phone: z.string().optional(),
   value: z.number().min(0).optional(),
   notes: z.string().optional(),
+  contexto: z.string().optional(),
   source: z.string().optional(),
   priority: z.enum(["low", "medium", "high"]),
   stageId: z.string().min(1, "Estágio obrigatório"),
@@ -90,6 +91,7 @@ export function LeadDialog({
       phone: "",
       value: 0,
       notes: "",
+      contexto: "",
       source: "",
       priority: "medium",
       stageId: defaultStageId || "",
@@ -155,6 +157,7 @@ export function LeadDialog({
           phone: lead.phone || "",
           value: lead.value || 0,
           notes: lead.notes || "",
+          contexto: lead.contexto || "",
           source: lead.source || "",
           priority: lead.priority,
           stageId: lead.stageId,
@@ -179,6 +182,7 @@ export function LeadDialog({
           phone: "",
           value: 0,
           notes: "",
+          contexto: "",
           source: "",
           priority: "medium",
           stageId: defaultStageId || stages[0]?.id || "",
@@ -700,6 +704,27 @@ export function LeadDialog({
                   />
                 )}
               />
+            </div>
+
+            <div className="col-span-2">
+              <Label htmlFor="contexto">Contexto para Follow-up (IA)</Label>
+              <Controller
+                name="contexto"
+                control={control}
+                render={({ field }) => (
+                  <Textarea
+                    id="contexto"
+                    placeholder="Informações de contexto que ajudarão a IA a personalizar as mensagens de follow-up (ex: interesses, produtos discutidos, objeções, etc.)"
+                    rows={3}
+                    value={field.value || ""}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                  />
+                )}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Este campo será usado pela IA para gerar mensagens de follow-up mais personalizadas
+              </p>
             </div>
           </div>
 

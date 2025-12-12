@@ -34,6 +34,7 @@ export interface FunnelLead {
   phone?: string
   value?: number
   notes?: string
+  contexto?: string // Contexto adicional para auxiliar no follow-up
   tags: string[]
   source?: string
   assignedTo?: string
@@ -402,7 +403,7 @@ export interface CreateFollowUpAgentRequest {
   model?: string
   temperature?: number
   maxTokens?: number
-  systemPrompt: string
+  systemPrompt?: string
   followUpPrompt?: string
   autoFollowUp?: boolean
   followUpDelayHours?: number
@@ -595,10 +596,13 @@ class FunnelService {
   }
 
   async saveFollowUpAgent(funnelId: string, data: CreateFollowUpAgentRequest): Promise<ApiResponse<FollowUpAgent>> {
-    return this.makeRequest<FollowUpAgent>(`/${funnelId}/follow-up-agent`, {
+    console.log('[Funnel API] saveFollowUpAgent called with:', { funnelId, data })
+    const result = await this.makeRequest<FollowUpAgent>(`/${funnelId}/follow-up-agent`, {
       method: 'POST',
       body: JSON.stringify(data),
     })
+    console.log('[Funnel API] saveFollowUpAgent result:', result)
+    return result
   }
 
   async toggleFollowUpAgent(funnelId: string): Promise<ApiResponse<FollowUpAgent>> {

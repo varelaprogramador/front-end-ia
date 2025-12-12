@@ -30,6 +30,24 @@ export interface FunnelWebSocketPayload {
   }
 }
 
+// Tipos para notificações em tempo real
+export interface NotificationPayload {
+  id: string
+  userId: string
+  funnelId?: string
+  leadId?: string
+  type: string
+  title: string
+  message: string
+  metadata?: Record<string, any>
+  actionUrl?: string
+  actionLabel?: string
+  priority: string
+  isHighlighted: boolean
+  playSound: boolean
+  createdAt: string
+}
+
 interface SocketContextValue {
   socket: Socket | null
   status: ConnectionStatus
@@ -45,6 +63,10 @@ interface SocketContextValue {
   joinFunnelRoom: (funnelId: string) => void
   leaveFunnelRoom: (funnelId: string) => void
 
+  // Métodos para Notificações do usuário
+  joinUserRoom: (userId: string) => void
+  leaveUserRoom: (userId: string) => void
+
   // Eventos customizados
   onNewMessage: (callback: (message: Message) => void) => () => void
   onMessageUpdate: (callback: (message: Message) => void) => () => void
@@ -53,6 +75,9 @@ interface SocketContextValue {
 
   // Eventos do Funil de Vendas
   onFunnelUpdate: (callback: (payload: FunnelWebSocketPayload) => void) => () => void
+
+  // Eventos de Notificações
+  onNotification: (callback: (notification: NotificationPayload) => void) => () => void
 }
 
 // ===================================================
@@ -80,6 +105,7 @@ export function SocketProvider({ children }: SocketProviderProps) {
   const contactUpdateCallbacksRef = useRef<Set<(contact: Contact) => void>>(new Set())
   const typingCallbacksRef = useRef<Set<(data: { contactId: string; isTyping: boolean }) => void>>(new Set())
   const funnelUpdateCallbacksRef = useRef<Set<(payload: FunnelWebSocketPayload) => void>>(new Set())
+  const notificationCallbacksRef = useRef<Set<(notification: NotificationPayload) => void>>(new Set())
 
   // ===================================================
   // Inicialização do Socket
@@ -171,6 +197,12 @@ export function SocketProvider({ children }: SocketProviderProps) {
       funnelUpdateCallbacksRef.current.forEach(callback => callback(payload))
     })
 
+    // Evento de nova notificação em tempo real
+    socketInstance.on("notification:new", (notification: NotificationPayload) => {
+      console.log("🔔 [SOCKET] Nova notificação recebida:", notification)
+      notificationCallbacksRef.current.forEach(callback => callback(notification))
+    })
+
     setSocket(socketInstance)
 
     // Cleanup ao desmontar
@@ -246,6 +278,27 @@ export function SocketProvider({ children }: SocketProviderProps) {
   }, [socket])
 
   // ===================================================
+  // User Notification Room Management
+  // ===================================================
+
+  const joinUserRoom = useCallback((userId: string) => {
+    if (!socket) {
+      console.warn("⚠️ [SOCKET] Socket não conectado")
+      return
+    }
+
+    console.log("🔔 [SOCKET] Entrando na sala de notificações do usuário:", userId)
+    socket.emit("join_user_room", { userId })
+  }, [socket])
+
+  const leaveUserRoom = useCallback((userId: string) => {
+    if (!socket) return
+
+    console.log("🔕 [SOCKET] Saindo da sala de notificações do usuário:", userId)
+    socket.emit("leave_user_room", { userId })
+  }, [socket])
+
+  // ===================================================
   // Event Listeners Customizados
   // ===================================================
 
@@ -290,6 +343,14 @@ export function SocketProvider({ children }: SocketProviderProps) {
     }
   }, [])
 
+  const onNotification = useCallback((callback: (notification: NotificationPayload) => void) => {
+    notificationCallbacksRef.current.add(callback)
+
+    return () => {
+      notificationCallbacksRef.current.delete(callback)
+    }
+  }, [])
+
   // ===================================================
   // Context Value
   // ===================================================
@@ -304,11 +365,14 @@ export function SocketProvider({ children }: SocketProviderProps) {
     leaveContactRoom,
     joinFunnelRoom,
     leaveFunnelRoom,
+    joinUserRoom,
+    leaveUserRoom,
     onNewMessage,
     onMessageUpdate,
     onContactUpdate,
     onTyping,
     onFunnelUpdate,
+    onNotification,
   }
 
   return (
