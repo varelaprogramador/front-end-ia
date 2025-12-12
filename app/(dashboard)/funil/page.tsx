@@ -203,11 +203,8 @@ export default function FunilPage() {
       console.error("Error saving funnel:", error)
       // Extrair mensagem de erro do backend
       const errorMessage = error?.response?.data?.error || error?.message || "Erro ao salvar funil"
-      toast({
-        title: "Erro ao salvar funil",
-        description: errorMessage,
-        variant: "destructive",
-      })
+      // Usar window.alert para garantir visibilidade do erro
+      window.alert(errorMessage)
       throw error
     }
   }

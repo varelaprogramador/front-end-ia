@@ -446,7 +446,26 @@ class FunnelService {
       if (!response.ok) {
         const errorText = await response.text()
         console.error('[Funnel API] Error response:', errorText)
-        throw new Error(`HTTP error! status: ${response.status}`)
+
+        // Tentar extrair mensagem de erro do JSON retornado pelo backend
+        let errorMessage = `HTTP error! status: ${response.status}`
+        try {
+          const errorJson = JSON.parse(errorText)
+          if (errorJson.error) {
+            errorMessage = errorJson.error
+          } else if (errorJson.message) {
+            errorMessage = errorJson.message
+          }
+        } catch {
+          // Se não for JSON válido, usar a mensagem padrão
+        }
+
+        const error = new Error(errorMessage) as Error & { response?: { data: any; status: number } }
+        error.response = {
+          data: { error: errorMessage },
+          status: response.status,
+        }
+        throw error
       }
 
       const responseText = await response.text()
