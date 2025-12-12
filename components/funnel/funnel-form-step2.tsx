@@ -341,11 +341,15 @@ export default function FunnelFormStep2({
         console.log("🔍 [RD Station Deals] Response data:", responseData);
 
         // Estrutura da resposta:
-        // Backend retorna: { success: true, data: <resposta_rd_station> }
-        // RD Station retorna: { data: [...], links: {...} }
+        // Backend retorna: { success: true, data: { deals: [...], total, pages } }
+        // Ou formato antigo: { success: true, data: { data: [...] } }
         let deals: RDStationDeal[] = [];
 
-        if (responseData.data?.data && Array.isArray(responseData.data.data)) {
+        if (responseData.data?.deals && Array.isArray(responseData.data.deals)) {
+          // Nova estrutura com paginacao completa
+          deals = responseData.data.deals;
+        } else if (responseData.data?.data && Array.isArray(responseData.data.data)) {
+          // Estrutura antiga do RD Station
           deals = responseData.data.data;
         } else if (Array.isArray(responseData.data)) {
           deals = responseData.data;
