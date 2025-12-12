@@ -59,11 +59,17 @@ export async function getFunnelStatsByAgentId(agentId: string): Promise<FunnelSt
       return null
     }
 
-    const data = await response.json()
+    const responseData = await response.json()
+    console.log(`🔍 [FUNNEL-STATS] Resposta bruta da API:`, responseData)
+
+    // A API retorna os dados dentro de response.data
+    const data = responseData.data || responseData
+
     console.log(`✅ [FUNNEL-STATS] Estatísticas carregadas:`, {
       totalFunnels: data.totalFunnels,
       totalLeads: data.totalLeads,
       conversionRate: data.conversionRate,
+      funnelsCount: data.funnels?.length || 0,
     })
 
     return data
