@@ -96,10 +96,28 @@ export default function WorkspaceFormStep3({
     updateFormData({ selectedCredentials: newSelected });
   };
 
+  // Verificar se tem credencial ChatGPT selecionada
+  const hasChatGPTCredential = formData.selectedCredentials.some(credId => {
+    const cred = credentials.find(c => c.id === credId);
+    return cred?.type === "CHATGPT";
+  });
+
+  // Verificar se existe credencial ChatGPT disponível
+  const chatGPTCredentials = credentials.filter(c => c.type === "CHATGPT");
+  const hasChatGPTAvailable = chatGPTCredentials.length > 0;
+
   const handleCreateWorkspaceWithN8N = async () => {
     if (!userId) {
       toast.error("Erro de autenticação", {
         description: "Usuário não autenticado. Faça login para continuar.",
+      });
+      return;
+    }
+
+    // Validar credencial ChatGPT obrigatória
+    if (!hasChatGPTCredential) {
+      toast.error("Credencial ChatGPT obrigatória", {
+        description: "Você precisa selecionar uma credencial ChatGPT para criar o workspace.",
       });
       return;
     }
@@ -232,39 +250,59 @@ export default function WorkspaceFormStep3({
     );
   }
 
-  if (credentials.length === 0) {
-    return (
-      <div className="rounded-lg bg-yellow-50 dark:bg-yellow-950 p-8 border border-yellow-200 dark:border-yellow-800 text-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-12 w-12 rounded-full bg-yellow-200 dark:bg-yellow-700 flex items-center justify-center">
-            <Key className="h-6 w-6 text-yellow-600 dark:text-yellow-300" />
-          </div>
-          <div>
-            <h3 className="text-sm font-medium text-yellow-900 dark:text-yellow-100">
-              Nenhuma Credencial Disponível
-            </h3>
-            <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
-              Você precisa criar credenciais antes de vincular ao workspace.
-            </p>
-            <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
-              Vá para <strong>Credenciais</strong> e crie suas integrações primeiro.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Se não há credenciais, mostrar aviso mas permitir continuar
+  const hasNoCredentials = credentials.length === 0;
 
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-medium">Selecione as Credenciais</h3>
+        <h3 className="text-lg font-medium">Selecione as Credenciais (Opcional)</h3>
         <p className="text-sm text-muted-foreground mt-1">
-          Escolha quais credenciais este workspace poderá utilizar
+          Escolha quais credenciais este workspace poderá utilizar. Você pode pular esta etapa e vincular credenciais depois.
         </p>
       </div>
 
+      {/* Aviso quando não há credencial ChatGPT disponível */}
+      {!hasChatGPTAvailable && (
+        <div className="rounded-lg bg-red-50 dark:bg-red-950 p-4 border border-red-200 dark:border-red-800">
+          <div className="flex items-start gap-3">
+            <div className="h-10 w-10 rounded-full bg-red-200 dark:bg-red-700 flex items-center justify-center shrink-0">
+              <MessageSquare className="h-5 w-5 text-red-600 dark:text-red-300" />
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-red-900 dark:text-red-100">
+                Credencial ChatGPT Obrigatória
+              </h3>
+              <p className="text-sm text-red-700 dark:text-red-300 mt-1">
+                Você precisa criar uma credencial do tipo <strong>ChatGPT</strong> antes de criar um workspace.
+                Vá para <strong>Credenciais</strong> e crie uma integração ChatGPT primeiro.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Aviso quando não há credenciais mas tem ChatGPT */}
+      {hasNoCredentials && hasChatGPTAvailable && (
+        <div className="rounded-lg bg-yellow-50 dark:bg-yellow-950 p-4 border border-yellow-200 dark:border-yellow-800">
+          <div className="flex items-start gap-3">
+            <div className="h-10 w-10 rounded-full bg-yellow-200 dark:bg-yellow-700 flex items-center justify-center shrink-0">
+              <Key className="h-5 w-5 text-yellow-600 dark:text-yellow-300" />
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-yellow-900 dark:text-yellow-100">
+                Outras Credenciais são Opcionais
+              </h3>
+              <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
+                Apenas a credencial ChatGPT é obrigatória. As demais credenciais podem ser vinculadas depois através do menu do workspace.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Lista de Credenciais */}
+      {!hasNoCredentials && (
       <div className="grid gap-3">
         {credentials.map((credential) => {
           const Icon = credentialIcons[credential.type] || Key;
@@ -332,33 +370,40 @@ export default function WorkspaceFormStep3({
           );
         })}
       </div>
+      )}
 
       {/* Resumo de Seleção */}
-      <div className="rounded-lg bg-blue-50 dark:bg-blue-950 p-4 border border-blue-200 dark:border-blue-800">
+      <div className={`rounded-lg p-4 border ${
+        hasChatGPTCredential
+          ? "bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800"
+          : "bg-orange-50 dark:bg-orange-950 border-orange-200 dark:border-orange-800"
+      }`}>
         <div className="flex items-start gap-3">
-          <div className="flex-shrink-0 mt-0.5">
-            <svg
-              className="h-5 w-5 text-blue-600 dark:text-blue-400"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fillRule="evenodd"
-                d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                clipRule="evenodd"
-              />
-            </svg>
+          <div className="shrink-0 mt-0.5">
+            {hasChatGPTCredential ? (
+              <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+            ) : (
+              <MessageSquare className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+            )}
           </div>
           <div className="flex-1">
-            <h3 className="text-sm font-medium text-blue-900 dark:text-blue-100">
-              {formData.selectedCredentials.length === 0
-                ? "Nenhuma credencial selecionada"
-                : `${formData.selectedCredentials.length} credencial(is) selecionada(s)`}
+            <h3 className={`text-sm font-medium ${
+              hasChatGPTCredential
+                ? "text-green-900 dark:text-green-100"
+                : "text-orange-900 dark:text-orange-100"
+            }`}>
+              {hasChatGPTCredential
+                ? `${formData.selectedCredentials.length} credencial(is) selecionada(s) - ChatGPT incluído`
+                : "Credencial ChatGPT não selecionada"}
             </h3>
-            <p className="mt-1 text-sm text-blue-700 dark:text-blue-300">
-              {formData.selectedCredentials.length === 0
-                ? "Você pode pular esta etapa e vincular credenciais depois, ou selecione as credenciais que o workspace usará para se conectar a serviços externos."
-                : "O workspace terá acesso a estas credenciais para realizar integrações."}
+            <p className={`mt-1 text-sm ${
+              hasChatGPTCredential
+                ? "text-green-700 dark:text-green-300"
+                : "text-orange-700 dark:text-orange-300"
+            }`}>
+              {hasChatGPTCredential
+                ? "O workspace está pronto para ser criado com as credenciais selecionadas."
+                : "Selecione uma credencial ChatGPT para continuar. Esta credencial é obrigatória para o funcionamento do workspace."}
             </p>
           </div>
         </div>
@@ -543,16 +588,23 @@ export default function WorkspaceFormStep3({
                 Criar Workspace
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Crie o workspace no N8N e no sistema com as credenciais selecionadas.
+                {hasChatGPTCredential
+                  ? "Crie o workspace no N8N e no sistema com as credenciais selecionadas."
+                  : "Selecione uma credencial ChatGPT acima para habilitar a criação do workspace."}
               </p>
               <Button
                 onClick={handleCreateWorkspaceWithN8N}
-                disabled={creatingN8N}
+                disabled={creatingN8N || !hasChatGPTCredential}
                 className="mt-2"
               >
                 <Rocket className="h-4 w-4 mr-2" />
                 Criar Workspace
               </Button>
+              {!hasChatGPTCredential && (
+                <p className="text-xs text-orange-600 dark:text-orange-400">
+                  A credencial ChatGPT é obrigatória
+                </p>
+              )}
             </div>
           )}
         </div>
