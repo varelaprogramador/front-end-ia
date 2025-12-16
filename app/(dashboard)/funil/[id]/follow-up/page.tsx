@@ -226,15 +226,34 @@ export default function FollowUpAgentPage({ params }: { params: { id: string } }
         setAvailableLeads(leads)
       }
 
-      // Load Evolution instances for the agent (from configIa)
-      if (funnelResponse.data?.configIaId) {
-        try {
-          const instancesResponse = await evolutionInstanceService.getInstancesByConfigIaId(funnelResponse.data.configIaId)
-          if (instancesResponse.success && instancesResponse.data) {
-            setEvolutionInstances(instancesResponse.data)
+      // Load Evolution instances for the agent
+      // Se o funil tem configIaId, buscar instâncias vinculadas
+      // Senão, buscar todas as instâncias do usuário
+      try {
+        let instancesResponse;
+        if (funnelResponse.data?.configIaId) {
+          // Buscar instâncias vinculadas ao agente/workspace
+          instancesResponse = await evolutionInstanceService.getInstancesByConfigIaId(funnelResponse.data.configIaId)
+        } else if (userId) {
+          // Buscar todas as instâncias do usuário quando não há agente vinculado
+          instancesResponse = await evolutionInstanceService.getInstancesByUser(userId)
+        }
+
+        if (instancesResponse?.success && instancesResponse?.data) {
+          setEvolutionInstances(instancesResponse.data)
+        }
+      } catch (error) {
+        console.error("Error loading Evolution instances:", error)
+        // Em caso de erro, tentar buscar todas do usuário como fallback
+        if (userId) {
+          try {
+            const fallbackResponse = await evolutionInstanceService.getInstancesByUser(userId)
+            if (fallbackResponse?.success && fallbackResponse?.data) {
+              setEvolutionInstances(fallbackResponse.data)
+            }
+          } catch (fallbackError) {
+            console.error("Fallback also failed:", fallbackError)
           }
-        } catch (error) {
-          console.error("Error loading Evolution instances:", error)
         }
       }
 

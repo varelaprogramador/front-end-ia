@@ -123,6 +123,7 @@ export default function FunnelFormStep2({
   }, [formData.configIaId, agents]);
 
   // Carregar pipelines do Kommo quando agente for selecionado
+  // Usando POST /kommo/verify (mesmo método do workspace)
   useEffect(() => {
     const loadKommoPipelines = async () => {
       if (!selectedAgent?.kommoSubdomain || !selectedAgent?.kommoAccessToken) {
@@ -133,16 +134,43 @@ export default function FunnelFormStep2({
       setLoadingKommoPipelines(true);
       setKommoError(null);
       try {
+        // Usar POST /kommo/verify com body (igual ao workspace)
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/kommo/pipelines?subdomain=${selectedAgent.kommoSubdomain}&access_token=${selectedAgent.kommoAccessToken}`
+          `${process.env.NEXT_PUBLIC_API_URL}/kommo/verify`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              subdomain: selectedAgent.kommoSubdomain,
+              accessToken: selectedAgent.kommoAccessToken,
+            }),
+          }
         );
 
         if (!response.ok) {
-          throw new Error("Erro ao carregar pipelines do Kommo");
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || "Erro ao carregar pipelines do Kommo");
         }
 
-        const data = await response.json();
-        setKommoPipelines(data._embedded?.pipelines || []);
+        const responseData = await response.json();
+        console.log("🔍 [Kommo Pipelines] Response data:", responseData);
+
+        // Backend retorna: { success: true, data: { _embedded: { pipelines: [...] } } }
+        const pipelines = responseData.data?._embedded?.pipelines || [];
+
+        // Mapear pipelines para incluir statuses (etapas)
+        const mappedPipelines: KommoPipeline[] = pipelines.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          sort: p.sort,
+          is_main: p.is_main,
+          statuses: p._embedded?.statuses || [],
+        }));
+
+        console.log("🔍 [Kommo Pipelines] Parsed pipelines:", mappedPipelines);
+        setKommoPipelines(mappedPipelines);
       } catch (error: any) {
         console.error("Error loading Kommo pipelines:", error);
         setKommoError(error.message || "Erro ao carregar pipelines");
