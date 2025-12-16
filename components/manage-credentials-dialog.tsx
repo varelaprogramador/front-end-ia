@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useUser } from "@clerk/nextjs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -34,23 +35,28 @@ const credentialTypeColors: Record<string, string> = {
 };
 
 export function ManageCredentialsDialog({ agent, open, onOpenChange, onSuccess }: ManageCredentialsDialogProps) {
+  const { user } = useUser();
+  const userId = user?.id;
+
   const [credentials, setCredentials] = useState<Credential[]>([]);
   const [selectedCredentials, setSelectedCredentials] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (open && agent) {
+    if (open && agent && userId) {
       loadCredentials();
       // Inicializar com as credenciais já atribuídas ao agente
       setSelectedCredentials(agent.credentialIds || []);
     }
-  }, [open, agent]);
+  }, [open, agent, userId]);
 
   const loadCredentials = async () => {
+    if (!userId) return;
+
     setLoading(true);
     try {
-      const data = await getCredentials();
+      const data = await getCredentials(userId);
       // Filtrar apenas credenciais ativas
       setCredentials(data.filter((c) => c.isActive));
     } catch (error) {
